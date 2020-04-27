@@ -158,6 +158,8 @@ def process_cc65_code():
     chars_index = 0
     chars_count = 0
     chars_reuse = 0
+    charset_dli_change = []
+    charset_dli_change.append(0)
     global a8_palette
     for y in range(8):
         temp_char[y] = 0
@@ -171,6 +173,7 @@ def process_cc65_code():
                 temp_char[y] = 0
             chars[charset_index, chars_index] = copy.deepcopy(temp_char)
             chars_index = chars_index + 1
+            charset_dli_change.append(j)
         for i in range (antic_target_modes[antic_target]["columns"]):
             if (i < round(w/4)):
                 for y in range (8):
@@ -214,6 +217,7 @@ def process_cc65_code():
         print("")
     print("};")
     print("")
+    print("// CHARSET DLI CHANGES IN LINES: " + str(charset_dli_change))
     print("unsigned char antic4_display_list[] = {")
     print("	DL_BLK8,")
     print("	DL_BLK8,")
@@ -221,17 +225,11 @@ def process_cc65_code():
     print("	DL_LMS(DL_CHR40x16x4),")
     print("	0x00,")
     print("	0x50,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_DLI(DL_CHR40x16x4),")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
-    print("	DL_CHR40x16x4,")
+    for i in range(1,12):
+        if i in charset_dli_change:
+            print("	DL_DLI(DL_CHR40x16x4),")
+        else:
+            print("	DL_CHR40x16x4,")
     print("	DL_JVB,")
     print("	0x00,")
     print("};")
