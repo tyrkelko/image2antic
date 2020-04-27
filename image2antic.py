@@ -204,6 +204,7 @@ def process_cc65_code():
             else:
                 screen[i,j] = 0
     # print the charsets and screen data formatted for cc65
+    charsets_size = []
     for charset_number in range(charset_index + 1):
         chars_in_set = 0
         for char in chars:
@@ -216,6 +217,7 @@ def process_cc65_code():
                 print (chars[charset_number, char][byte], end = ", ")
             print ("")
         print ("}; // chars in set:", chars_in_set)
+        charsets_size.append(chars_in_set)
     print ("// antic 5 screen data")
     print ("unsigned char screen_data[] = {")
     for j in range(antic_target_modes[antic_target]["lines"]):
@@ -264,10 +266,12 @@ def process_cc65_code():
     print("	OS.sdlst=(void*)DLIST_MEM;")
     print("")
     print("	// CREATE CHARSET")
-    print("	//memcpy((void*)CHARSET_MEM, 0xE000, 0x400);")
-    print("	memcpy((void*)(CHARSET0_MEM), charset_0_data, 8*97);")
-    print("	memcpy((void*)(CHARSET1_MEM), charset_1_data, 8*50);")
-    print("	//memcpy((void*)(CHARSET1_MEM + 8 * 97), my_chars, 26*8);")
+    #print("	//memcpy((void*)CHARSET_MEM, 0xE000, 0x400);")
+    for i in range(charset_index+1):
+        print("	memcpy((void*)(CHARSET"+str(i)+"_MEM), charset_"+str(i)+"_data, 8*"+str(charsets_size[i])+");")
+    #print("	memcpy((void*)(CHARSET0_MEM), charset_0_data, 8*97);")
+    #print("	memcpy((void*)(CHARSET1_MEM), charset_1_data, 8*50);")
+    #print("	//memcpy((void*)(CHARSET1_MEM + 8 * 97), my_chars, 26*8);")
     print("	OS.chbas = CHARSET0_MEM >> 8;")
     print("	memcpy((void*)(SCREEN_MEM), screen_data, 40*12);")
     print("")
