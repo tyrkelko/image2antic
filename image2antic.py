@@ -124,10 +124,14 @@ def process_cc65_code():
     print("#include <atari.h>")
     print("#include <string.h>")
     print("")
-    print("#define SCREEN_MEM		0x5000")
-    print("#define DLIST_MEM		0x4000	// aligned to 1K")
-    print("#define CHARSET0_MEM 	0x3000	// aligned to 1K")
-    print("#define CHARSET1_MEM 	0x3400	// aligned to 1K")
+    print("#define SCREEN_MEM		0x7000")
+    print("#define DLIST_MEM		0x6C00	// aligned to 1K")
+    print("#define CHARSET0_MEM 	0x5000	// aligned to 1K")
+    print("#define CHARSET1_MEM 	0x5400	// aligned to 1K")
+    print("#define CHARSET2_MEM 	0x5800	// aligned to 1K")
+    print("#define CHARSET3_MEM 	0x5C00	// aligned to 1K")
+    print("#define CHARSET4_MEM 	0x6000	// aligned to 1K")
+    
     print("")
     # display the image pixel colors on the screen
     rgb_im = img.convert('RGB')
@@ -147,7 +151,7 @@ def process_cc65_code():
                 tiles[i,j,y] = 0
                 for x in range (4):
                     r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
-                    pixel = round(((r*8+g*4+b*8)/640))
+                    pixel = round(((r*8+g*8+b*8)/640))
                     double_bit_pixel = 2 if (pixel == 5) else 1 if (pixel == 7) else pixel
                     tiles[i,j,y] = tiles[i,j,y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * double_bit_pixel
     # group distinct chars and create screen char map                
@@ -159,6 +163,7 @@ def process_cc65_code():
     chars_count = 0
     chars_reuse = 0
     charset_dli_change = []
+    global charset_dli_change
     charset_dli_change.append(0)
     global a8_palette
     for y in range(8):
@@ -173,16 +178,18 @@ def process_cc65_code():
                 temp_char[y] = 0
             chars[charset_index, chars_index] = copy.deepcopy(temp_char)
             chars_index = chars_index + 1
-            charset_dli_change.append(j)
+            charset_dli_change.append(j - 1)
         for i in range (antic_target_modes[antic_target]["columns"]):
             if (i < round(w/4)):
                 for y in range (8):
                     temp_char[y] = 0
                     for x in range (4):
                         r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
-                        pixel = round(((r*8+g*4+b*8)/640))
+                        #if (r,g,b in rgb_colors):
+                        pixel = rgb_colors.index((r,g,b))
+                            
                         double_bit_pixel = 2 if (pixel == 5) else 1 if (pixel == 7) else pixel
-                        temp_char[y] = temp_char[y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * double_bit_pixel
+                        temp_char[y] = temp_char[y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * pixel #double_bit_pixel
                 char_exists = False
                 for char in chars:
                     if char[0] == charset_index and chars[char] == temp_char:
@@ -224,7 +231,7 @@ def process_cc65_code():
     print("	DL_DLI(DL_BLK8),")
     print("	DL_LMS(DL_CHR40x16x4),")
     print("	0x00,")
-    print("	0x50,")
+    print("	SCREEN_MEM >> 8,")
     for i in range(1,12):
         if i in charset_dli_change:
             print("	DL_DLI(DL_CHR40x16x4),")
@@ -242,11 +249,13 @@ def process_cc65_code():
     print("")
     print("void init_strings_length(void);")
     print("void string_index_to_mem(unsigned char, unsigned int);")
-    print("void dli_routine(void);")
-    print("void dli_routine1(void);")
-    print("void dli_routine2(void);")
     print("void wait_for_vblank(void);")
     print("void setup_dli(void);")
+    global dli_count
+    
+    dli_count = len(charset_dli_change)
+    for i in range(0,dli_count):
+        print('void dli_routine_'+str(i)+'(void);')
     print("")
     print("void main(void)")
     print("{")
@@ -290,44 +299,34 @@ def process_cc65_code():
     print('    asm("cmp $14");')
     print('    asm("beq %g", wvb);')
     print('} ')
-    print('void dli_routine1(void)')
-    print('{')
-    print('    asm("pha");')
-    print('    asm("tya");')
-    print('    asm("pha");')
-    print('    asm("tya");')
-    print('    asm("pha");')
-    print('    ANTIC.wsync = 1;')
-    print('    ANTIC.chbase = CHARSET1_MEM >> 8;')
-    print('    OS.vdslst = &dli_routine;')
-    print('    asm("pla");')
-    print('    asm("tay");')
-    print('    asm("pla");')
-    print('    asm("tax");')
-    print('    asm("pla");')
-    print('    asm("rti");')
-    print('}')
-    print('void dli_routine(void)')
-    print('{')
-    print('    asm("pha");')
-    print('    asm("tya");')
-    print('    asm("pha");')
-    print('    asm("tya");')
-    print('    asm("pha");')
-    print('    ANTIC.wsync = 1;')
-    print('    ANTIC.chbase = CHARSET0_MEM >> 8;')
-    print('    OS.vdslst = &dli_routine1;')
-    print('    asm("pla");')
-    print('    asm("tay");')
-    print('    asm("pla");')
-    print('    asm("tax");')
-    print('    asm("pla");')
-    print('    asm("rti");')
-    print('}')
+
+    for i in range(0,dli_count):
+        print('void dli_routine_'+str(i)+'(void)')
+        print('{')
+        print('    asm("pha");')
+        print('    asm("tya");')
+        print('    asm("pha");')
+        print('    asm("tya");')
+        print('    asm("pha");')
+        print('    ANTIC.wsync = 1;')
+        print('    ANTIC.chbase = CHARSET'+str(i)+'_MEM >> 8;')
+        if (i < dli_count-1):
+            dli_update = i+1
+        else:
+            dli_update = 0
+        print('    OS.vdslst = &dli_routine_'+str(dli_update)+';')
+        print('    asm("pla");')
+        print('    asm("tay");')
+        print('    asm("pla");')
+        print('    asm("tax");')
+        print('    asm("pla");')
+        print('    asm("rti");')
+        print('}')
+
     print('void setup_dli(void)')
     print('{')
     print('	wait_for_vblank();')
-    print('    OS.vdslst = &dli_routine;')
+    print('    OS.vdslst = &dli_routine_0;')
     print('}')
     print('void erase_sprite() {')
     print('	// ERASE SPRITE')
@@ -384,6 +383,7 @@ class Root(Tk):
         global img
         global my_a8_palette
         global rgb_colors
+        
         img = Image.open(input_directory+'/'+input_filename) 
         w, h = img.size
         mode_to_bpp = {'1':1, 'L':8, 'P':8, 'RGB':24, 'RGBA':32, 'CMYK':32, 'YCbCr':24, 'I':32, 'F':32}
@@ -426,4 +426,3 @@ class Root(Tk):
 
 root = Root()
 root.mainloop()
-
