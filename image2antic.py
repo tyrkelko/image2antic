@@ -55,12 +55,8 @@ def find_nearest_color(r,g,b):
             min_index = i
     return min_index
 
-print(find_nearest_color(5,5,5))
 # get configuration with previous working directory and parameters
 config = configparser.RawConfigParser()
-
-print("image2antic.cfg: ", os.path.exists('image2antic.cfg'))
-
 
 def init():
     'Create a configuration file if does not exist'
@@ -162,8 +158,8 @@ def process_cc65_code():
     chars_index = 0
     chars_count = 0
     chars_reuse = 0
-    charset_dli_change = []
     global charset_dli_change
+    charset_dli_change = []
     charset_dli_change.append(0)
     global a8_palette
     for y in range(8):
