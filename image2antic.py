@@ -10,6 +10,7 @@ import os.path
 from tkinter import *
 from PIL import Image
 import copy
+from pathlib import Path
 
 a8_palette = [	( 45, 45, 45),( 59, 59, 59),( 73, 73, 73),( 87, 87, 87),(101,101,101),(115,115,115),(129,129,129),(143,143,143),
 				(157,157,157),(171,171,171),(185,185,185),(199,199,199),(213,213,213),(227,227,227),(241,241,241),(255,255,255),
@@ -96,48 +97,37 @@ def update(section, key, value):
 #------------------------------------------------------------
 
 def process_cc65_code():
+    global input_filename
     print("processing...")
+    rgb_im = img.convert("RGB")
+    working_directory = input_filename.split(".")[0]
+    Path(working_directory).mkdir(parents=True, exist_ok=True)
+
+    screen_mem_start = 28672 # 0x7000
+    charset_base_mem_start= 20480 # 0x5000
+    
+    #define SCREEN_MEM		0x7000
+    #define DLIST_MEM		0x6C00	// aligned to 1K
+    #define CHARSET0_MEM 	0x5000	// aligned to 1K
+    #define CHARSET1_MEM 	0x5400	// aligned to 1K
+    #define CHARSET2_MEM 	0x5800	// aligned to 1K
+    #define CHARSET3_MEM 	0x5C00	// aligned to 1K
+    #define CHARSET4_MEM 	0x6000	// aligned to 1K
+
     antic_target_modes = {
         "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8},
         "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8}
     }
     antic_target = "5"
-    # img.show() 
-    print("/************************************************")
-    print("** Generated with image2antic.py               **")
-    print("** Kobi Tyrkel                                 **")
-    print("** April 23, 2020                              **")
-    print("** " + img.format) 
-    print("** " + img.mode)
-    # prints image size and channel
+    segments_file_text = ""
+    atari_cfg_memory = ""
+    atari_cfg_segments = ""
+    atari_main_c_definitions = ""
+    atari_main_c_dl_array = ""
+    charsets_mem_list = []
     w, h = img.size
-    print('** width:  ', w)
-    print('** height: ', h)
     mode_to_bpp = {'1':1, 'L':8, 'P':8, 'RGB':24, 'RGBA':32, 'CMYK':32, 'YCbCr':24, 'I':32, 'F':32}
     d = mode_to_bpp[img.mode]
-    print('** depth: ' + str(d))
-    print("************************************************/")
-    print("#include <atari.h>")
-    print("#include <string.h>")
-    print("")
-    print("#define SCREEN_MEM		0x7000")
-    print("#define DLIST_MEM		0x6C00	// aligned to 1K")
-    print("#define CHARSET0_MEM 	0x5000	// aligned to 1K")
-    print("#define CHARSET1_MEM 	0x5400	// aligned to 1K")
-    print("#define CHARSET2_MEM 	0x5800	// aligned to 1K")
-    print("#define CHARSET3_MEM 	0x5C00	// aligned to 1K")
-    print("#define CHARSET4_MEM 	0x6000	// aligned to 1K")
-    
-    print("")
-    # display the image pixel colors on the screen
-    rgb_im = img.convert('RGB')
-    for y in range(h):
-        for x in range(w):
-            r, g, b = rgb_im.getpixel((x, y))
-            ch = round(((r*512+g*64+b*8)/8))
-            ch = " " if (ch == 0) else ch
-            #print(ch, end = "")
-        #print(" ")
 
     # arrange an array of ANTIC 4 COLOR TEXT mode 4x8 tiles
     tiles = {}
@@ -150,8 +140,9 @@ def process_cc65_code():
                     pixel = round(((r*8+g*8+b*8)/640))
                     double_bit_pixel = 2 if (pixel == 5) else 1 if (pixel == 7) else pixel
                     tiles[i,j,y] = tiles[i,j,y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * double_bit_pixel
-    # group distinct chars and create screen char map                
+    # group distinct chars and create screen char map
     chars = {}
+    screenArray = []
     screen = {}
     temp_char = {}
     charset_index = 0
@@ -199,149 +190,108 @@ def process_cc65_code():
                     chars_index = chars_index + 1
             else:
                 screen[i,j] = 0
-    # print the charsets and screen data formatted for cc65
+    # generate the charsets and screen data formatted for cc65
+    atari_cfg_memory = atari_cfg_memory + "# charsets load chunk (generated with image2antic.py)\n"
+    atari_cfg_segments = atari_cfg_segments + "# segments declaration (generated with image2antic.py)\n"
+    
     charsets_size = []
     for charset_number in range(charset_index + 1):
         chars_in_set = 0
         for char in chars:
             if (char[0] == charset_number):
                 chars_in_set = chars_in_set + 1
-        print ("// antic 5 chars data")
-        print ("unsigned char charset_"+str(charset_number)+"_data[] = {")
+        print ("generate charset_"+str(charset_number)+"_data")
+        charsetArray = []
         for char in range(chars_in_set):
-            for byte in range(8): #chars[charset_number, char]:
-                print (chars[charset_number, char][byte], end = ", ")
-            print ("")
-        print ("}; // chars in set:", chars_in_set)
+            for byte in range(8): 
+                charsetArray.append(chars[charset_number, char][byte])
+        print ("chars in set:", chars_in_set)
+        for i in range(chars_in_set * 8, 128 * 8):
+            charsetArray.append(0)
+        print ("filled blanks to 128 chars")
+        
+        charsetByteArray = bytearray(charsetArray)
+        charsetBinaryFile = open(working_directory+"/charset_"+str(charset_number)+"_data.bin", "wb")
+        charsetBinaryFile.write(charsetByteArray)
+
+        charsets_mem_list.append("CHARSET"+str(charset_number)+"_MEM")
+
+        atari_cfg_memory = atari_cfg_memory + "CHARSET_"+str(charset_number)+"_MEM: file = %O,               start = "+hex(charset_base_mem_start+charset_number*1024).upper().replace("0X", "$")+", size = $0400;\n"
+        atari_cfg_segments = atari_cfg_segments + "    CHARSET_"+str(charset_number)+":       load = CHARSET_"+str(charset_number)+"_MEM,       type = rw, define = yes;\n"
+        atari_main_c_definitions = atari_main_c_definitions + "#define CHARSET"+str(charset_number)+"_MEM\t"+hex(charset_base_mem_start + charset_number*1024).upper().replace("0X", "0x")+"\n"
+        
+        segments_file_text = segments_file_text + '.segment "CHARSET_'+str(charset_number)+'"\n'
+        segments_file_text = segments_file_text + '_L_CHARSET_'+str(charset_number)+':\n'
+        segments_file_text = segments_file_text + '.incbin "charset_'+str(charset_number)+'_data.bin"\n'
+        segments_file_text = segments_file_text + '.export _L_CHARSET_'+str(charset_number)+'\n\n'
         charsets_size.append(chars_in_set)
-    print ("// antic 5 screen data")
-    print ("unsigned char screen_data[] = {")
+
+    print ("generate screen_data")
     for j in range(antic_target_modes[antic_target]["lines"]):
         for i in range (antic_target_modes[antic_target]["columns"]):
-            print(screen[i, j], end=", ")
-        print("")
-    print("};")
-    print("")
-    print("// CHARSET DLI CHANGES IN LINES: " + str(charset_dli_change))
-    print("unsigned char antic4_display_list[] = {")
-    print("	DL_BLK8,")
-    print("	DL_BLK8,")
-    print("	DL_DLI(DL_BLK8),")
-    print("	DL_LMS(DL_CHR40x16x4),")
-    print("	0x00,")
-    print("	SCREEN_MEM >> 8,")
+            screenArray.append(screen[i,j])
+
+    atari_cfg_memory = atari_cfg_memory + "# dlist load chunk (generated with image2antic.py)\n"
+    atari_cfg_memory = atari_cfg_memory + "#    TODO DLIST_MEM: file = %O,               start = $1E00, size = $0018;\n"
+    atari_cfg_memory = atari_cfg_memory + "# screen data load chunk (generated with image2antic.py)\n"
+    atari_cfg_memory = atari_cfg_memory + "SCREEN_MEM: file = %O,               start = "+hex(screen_mem_start).upper().replace("0X", "$")+", size = "+str('0x%04x' % len(screenArray)).upper().replace("0X", "$")+";\n"
+    atari_main_c_definitions = atari_main_c_definitions + "#define SCREEN_MEM\t"+hex(screen_mem_start).upper().replace("0X", "0x")+"\n"
+    atari_main_c_definitions = atari_main_c_definitions + "#define DLIST_MEM		0x6C00	// aligned to 1K\n"
+    atari_main_c_definitions = atari_main_c_definitions + "//extern unsigned char *L_DLIST_MEM;\n"
+    atari_main_c_definitions = atari_main_c_definitions + "extern unsigned char *L_SCREEN_MEM;\n"
+    atari_main_c_definitions = atari_main_c_definitions + "extern unsigned char *L_CHARSET0_MEM;\n"
+    atari_main_c_definitions = atari_main_c_definitions + "extern unsigned char *L_CHARSET1_MEM;\n"
+        
+    atari_cfg_segments = atari_cfg_segments + "#   TODO DLIST:    load = DLIST_MEM,    type = rw, define = yes;\n"
+    atari_cfg_segments = atari_cfg_segments + "    SCREEN:       load = SCREEN_MEM,       type = rw, define = yes;\n"
+        
+    segments_file_text = segments_file_text + '.segment "SCREEN"\n'
+    segments_file_text = segments_file_text + '_L_SCREEN:\n'
+    segments_file_text = segments_file_text + '.incbin "screen_data.bin"\n'
+    segments_file_text = segments_file_text + '.export _L_SCREEN\n\n'
+
+    atari_main_c_dl_array = atari_main_c_dl_array + "// CHARSET DLI CHANGES IN LINES: " + str(charset_dli_change)+"\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "unsigned char antic4_display_list[] = {\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI(DL_BLK8),\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS(DL_CHR40x16x4),\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	0x00,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	SCREEN_MEM >> 8,\n"
     for i in range(1,12):
         if i in charset_dli_change:
-            print("	DL_DLI(DL_CHR40x16x4),")
+            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI(DL_CHR40x16x4),\n"
         else:
-            print("	DL_CHR40x16x4,")
-    print("	DL_JVB,")
-    print("	0x00,")
-    print("};")
-    print("")
-    print("")
-    print("void erase_sprite(void);")
-    print("void update_sprite(void);")
-    print("void draw_sprite(void);")
-    print("void handle_input (void);")
-    print("")
-    print("void init_strings_length(void);")
-    print("void string_index_to_mem(unsigned char, unsigned int);")
-    print("void wait_for_vblank(void);")
-    print("void setup_dli(void);")
-    global dli_count
+            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_CHR40x16x4,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_JVB,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	0x00,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "};\n"
+
+    screenByteArray = bytearray(screenArray)
+    screenBinaryFile = open(working_directory+"/screen_data.bin", "wb")
+    screenBinaryFile.write(screenByteArray)
+
+    segmentsFile = open(working_directory+"/segments.s", "w+")
+    segmentsFile.write(segments_file_text)
+
+    configurationTemplateFile = open("sources_templates/atari.cfg", "r")
+    cfg_file_str = configurationTemplateFile.read().replace("##atari_cfg_memory##", atari_cfg_memory).replace("##atari_cfg_segments##", atari_cfg_segments)
+    cfgFile = open(working_directory+"/atari.cfg", "w+")
+    cfgFile.write(cfg_file_str)
+
+    charsets_mem_str = ""
+    i = 0
+    for s in charsets_mem_list:
+        if (i > 0):
+            charsets_mem_str = charsets_mem_str + ", "
+        charsets_mem_str = charsets_mem_str + s
+        i = i + 1
     
-    dli_count = len(charset_dli_change)
-    for i in range(0,dli_count):
-        print('void dli_routine_'+str(i)+'(void);')
-    print("")
-    print("void main(void)")
-    print("{")
-    print("	// CREATE SCREEN")
-    print("	memcpy((void*) DLIST_MEM,antic4_display_list,sizeof(antic4_display_list));")
-    print("	OS.sdlst=(void*)DLIST_MEM;")
-    print("")
-    print("	// CREATE CHARSET")
-    #print("	//memcpy((void*)CHARSET_MEM, 0xE000, 0x400);")
-    for i in range(charset_index+1):
-        print("	memcpy((void*)(CHARSET"+str(i)+"_MEM), charset_"+str(i)+"_data, 8*"+str(charsets_size[i])+");")
-    #print("	memcpy((void*)(CHARSET0_MEM), charset_0_data, 8*97);")
-    #print("	memcpy((void*)(CHARSET1_MEM), charset_1_data, 8*50);")
-    #print("	//memcpy((void*)(CHARSET1_MEM + 8 * 97), my_chars, 26*8);")
-    print("	OS.chbas = CHARSET0_MEM >> 8;")
-    print("	memcpy((void*)(SCREEN_MEM), screen_data, 40*12);")
-    print("")
-    print("	// SET COLORS")
-    print("	OS.color1 = " + str(my_a8_palette[0]) + ";") #0xEA;")
-    print("	OS.color2 = " + str(my_a8_palette[1]) + ";") # = 0x22;")
-    print("	OS.color3 = " + str(my_a8_palette[2]) + ";") #0xFF;")
-    print("	OS.color4 = " + str(my_a8_palette[3]) + ";") #0x00;")
-    print("")
-    print("	setup_dli();")
-    print("	wait_for_vblank();")
-    print("	ANTIC.nmien = NMIEN_DLI | NMIEN_VBI; ")
-    print("")
-    print("    OS.sdmctl = 0x3E;")
-    print("	// GAME LOOP")
-    print("	while (1) {")
-    print("		wait_for_vblank();")
-    print("		erase_sprite();")
-    print("		handle_input();")
-    print("		update_sprite();")
-    print("		draw_sprite();")
-    print("	};")
-    print("}")
-    print("")
-    print('void wait_for_vblank(void)')
-    print('{')
-    print('    asm("lda $14");')
-    print('wvb:')
-    print('    asm("cmp $14");')
-    print('    asm("beq %g", wvb);')
-    print('} ')
-
-    for i in range(0,dli_count):
-        print('void dli_routine_'+str(i)+'(void)')
-        print('{')
-        print('    asm("pha");')
-        print('    asm("tya");')
-        print('    asm("pha");')
-        print('    asm("tya");')
-        print('    asm("pha");')
-        print('    ANTIC.wsync = 1;')
-        print('    ANTIC.chbase = CHARSET'+str(i)+'_MEM >> 8;')
-        if (i < dli_count-1):
-            dli_update = i+1
-        else:
-            dli_update = 0
-        print('    OS.vdslst = &dli_routine_'+str(dli_update)+';')
-        print('    asm("pla");')
-        print('    asm("tay");')
-        print('    asm("pla");')
-        print('    asm("tax");')
-        print('    asm("pla");')
-        print('    asm("rti");')
-        print('}')
-
-    print('void setup_dli(void)')
-    print('{')
-    print('	wait_for_vblank();')
-    print('    OS.vdslst = &dli_routine_0;')
-    print('}')
-    print('void erase_sprite() {')
-    print('	// ERASE SPRITE')
-    print('}')
-    print('void update_sprite() {')
-    print('	// TODO: UPDATE SPRITE')
-    print('}')
-    print('void draw_sprite() {')
-    print('	// TODO: DRAW SPRITE')
-    print('}')
-    print('void handle_input (void)')
-    print('{')
-    print(' // TODO: HANDLE INPUT')
-    print('}')
-
+    mainCTemplateFile = open("sources_templates/main.c", "r")
+    main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str))
+    mainCFile = open(working_directory+"/main.c", "w+")
+    mainCFile.write(main_c_file)
+    
 # main loop handler class
 class Root(Tk):
     # show working dialog with a file browse button
@@ -405,8 +355,9 @@ class Root(Tk):
                     my_a8_palette.append(find_nearest_color(r,g,b))
         print(rgb_colors)
         self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(my_a8_palette))
-        img.show()
-        
+        if (len(my_a8_palette) < 5):
+            for i in range (len(my_a8_palette), 5):
+                my_a8_palette.append(0)
     # file dialog for choosing our image 2 antic file
     def fileDialog(self):
         global input_directory
