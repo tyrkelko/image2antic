@@ -8,7 +8,7 @@ To start the app,
 1. run image2antic.py
 2. Browse for an image you'd like to convert. This version supports height up to 96 in multiples of 8, width up to 160 in multiples of 8 and up to 4 colors. Currently the script doesn't validate anything, so, any image that doesn't comply might not work as expected.
 3. Once image was selected, some properties will be printed on the dialog including width, height and colors A8 palette.
-4. Clicking "Process" will print CC65 compatible code that includes multiple charsets and screen data required to display the image on an Atari 8-Bit Micro Computer.
+4. Clicking "Process" will create a folder named after the image without the filename extension, and save atari.cfg, segments.s and main.c files CC65 compatible to display the image on an Atari 8-Bit Micro Computer.
 
 Requirements:
 python 3.x (tested with 3.7.2 on Windows 10 and Ubuntu 16.04)
