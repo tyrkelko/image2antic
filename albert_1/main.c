@@ -16,7 +16,7 @@ extern unsigned char *L_CHARSET0_MEM;
 extern unsigned char *L_CHARSET1_MEM;
 
 
-unsigned int charset_array[] = {CHARSET0_MEM, CHARSET1_MEM};
+unsigned char charset_array[] = {CHARSET0_MEM >> 8, CHARSET1_MEM >> 8};
 
 // CHARSET DLI CHANGES IN LINES: [0, 6]
 unsigned char antic4_display_list[] = {
@@ -43,6 +43,7 @@ unsigned char antic4_display_list[] = {
 
 
 unsigned char charset_index = 0;
+unsigned char charset_array_size;
 
 void erase_sprite(void);
 void update_sprite(void);
@@ -60,12 +61,13 @@ void main(void)
 	OS.sdlst=(void*)DLIST_MEM;
 
 	// SET COLORS
-	OS.color0 = 138;
-	OS.color1 =  28;
-	OS.color2 = 24;
-	OS.color3 = 126;
-	OS.color4 = 132;
+	OS.color0 = 6;
+	OS.color1 = 10;
+	OS.color2 = 14;
+	OS.color3 = 0;
+	OS.color4 = 0;
 
+	charset_array_size = sizeof(charset_array);
 	setup_dli();
 	wait_for_vblank();
 	ANTIC.nmien = NMIEN_DLI | NMIEN_VBI; 
@@ -95,10 +97,10 @@ void dli_routine_0(void)
     asm("pha");
     asm("tya");
     asm("pha");
-    ANTIC.chbase = charset_array[charset_index] >> 8;
+    ANTIC.chbase = charset_array[charset_index];
     ANTIC.wsync = 1;
     charset_index++;
-    if (charset_index > 1) charset_index = 0;
+    if (charset_index >= charset_array_size) charset_index = 0;
     asm("pla");
     asm("tay");
     asm("pla");

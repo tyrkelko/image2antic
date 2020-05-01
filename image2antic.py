@@ -56,6 +56,56 @@ def find_nearest_color(r,g,b):
             min_index = i
     return min_index
 
+def find_pal_color(r,g,b):
+    Hue_Dictionary = {11:135,12:112.5,13:90,14:67.5,15:45,1:22.5,2:337.5,3:315,4:292.5,5:270,6:225,7:202.5,8:180,9:157.5,10:135}
+    R = float(r/255)
+    G = float(g/255)
+    B = float(b/255)
+    mn = R
+    if (mn > G):
+        mn = G
+    if (mn > B):
+        mn = B
+    if (R == B) and (R == G):
+        Hue = 0
+        h = 0
+    else:
+        if (R>=G) and (R>=B):
+            Hue = (G-B)/(R-mn)
+        elif (G>=R) and (G>=B):
+            Hue = 2.0+(B-R)/(G-mn)
+        else:
+            Hue = 4.0+(R-G)/(B-mn)
+        Hue = Hue * 60.0
+        while (Hue < 0):
+            Hue += 360
+        while (Hue > 360):
+            Hue -= 360
+        closest_h_index = 1
+        closest_h_distance = abs(Hue - Hue_Dictionary[1])
+        for h in Hue_Dictionary:
+            if (closest_h_distance > abs(Hue - Hue_Dictionary[h])):
+                closest_h_index = h
+                closest_h_distance = abs(Hue - Hue_Dictionary[h])
+    Lum = pow( 0.299*R*R + 0.587*G*G + 0.114*B*B , 0.5 )
+    Lum = round(16 * Lum)
+    if Lum % 2 == 1:
+        Lum = Lum - 1
+    
+    global Lum_A8
+    Lum_A8 = Lum
+    global Hue_A8
+    if (h == 0):
+        Hue_A8 = 0
+    else:
+        Hue_A8 = closest_h_index
+
+#for i in range(0,255,64):
+#    for j in range(0,255,64):
+#        for k in range(0,255,64):
+#            find_pal_color(i,j,k)
+#            print("RGB(",str(i),str(j),str(k),") is A8(",str(Hue_A8), str(Lum_A8),")")
+
 # get configuration with previous working directory and parameters
 config = configparser.RawConfigParser()
 
@@ -284,11 +334,18 @@ def process_cc65_code():
     for s in charsets_mem_list:
         if (i > 0):
             charsets_mem_str = charsets_mem_str + ", "
-        charsets_mem_str = charsets_mem_str + s
+        charsets_mem_str = charsets_mem_str + s + " >> 8"
         i = i + 1
+
+    color4 = yet_another_a8_palette[0][0] * 16 + yet_another_a8_palette[0][1]
+    color0 = yet_another_a8_palette[1][0] * 16 + yet_another_a8_palette[1][1]
+    color1 = yet_another_a8_palette[2][0] * 16 + yet_another_a8_palette[2][1]
+    color2 = yet_another_a8_palette[3][0] * 16 + yet_another_a8_palette[3][1]
+    color3 = color4 #255-color0 #yet_another_a8_palette[4][0] << 4 + yet_another_a8_palette[4][1]
+    print(color0, color1, color2, color3, color4)
     
     mainCTemplateFile = open("sources_templates/main.c", "r")
-    main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str))
+    main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str)).replace("##COLOR0##", str(color0)).replace("##COLOR1##", str(color1)).replace("##COLOR2##", str(color2)).replace("##COLOR3##", str(color3)).replace("##COLOR4##", str(color4))
     mainCFile = open(working_directory+"/main.c", "w+")
     mainCFile.write(main_c_file)
     
@@ -347,14 +404,18 @@ class Root(Tk):
         rgb_im = img.convert('RGB')
         rgb_colors = []
         my_a8_palette = []
+        global yet_another_a8_palette
+        yet_another_a8_palette = []
         for j in range(h):
             for i in range(w):
                 r, g, b = rgb_im.getpixel((i, j))
                 if ((r,g,b) not in rgb_colors):
                     rgb_colors.append((r,g,b))
                     my_a8_palette.append(find_nearest_color(r,g,b))
+                    find_pal_color(r,g,b)
+                    yet_another_a8_palette.append((Hue_A8, Lum_A8))
         print(rgb_colors)
-        self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(my_a8_palette))
+        self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(my_a8_palette) + "\nPalette (A8c)" + str(yet_another_a8_palette))
         if (len(my_a8_palette) < 5):
             for i in range (len(my_a8_palette), 5):
                 my_a8_palette.append(0)

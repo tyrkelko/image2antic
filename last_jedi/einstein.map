@@ -3,17 +3,18 @@ Modules list:
 segments.o:
     CHARSET_0         Offs=000000  Size=000400  Align=00001  Fill=0000
     CHARSET_1         Offs=000000  Size=000400  Align=00001  Fill=0000
+    CHARSET_2         Offs=000000  Size=000400  Align=00001  Fill=0000
     SCREEN            Offs=000000  Size=0001E0  Align=00001  Fill=0000
 main.o:
     CODE              Offs=000000  Size=00009F  Align=00001  Fill=0000
     BSS               Offs=000000  Size=000001  Align=00001  Fill=0000
-    DATA              Offs=000000  Size=000016  Align=00001  Fill=0000
+    DATA              Offs=000000  Size=000017  Align=00001  Fill=0000
 /home/kobi/cc65/lib/atari.lib(callmain.o):
     CODE              Offs=00009F  Size=000017  Align=00001  Fill=0000
-    DATA              Offs=000016  Size=000004  Align=00001  Fill=0000
+    DATA              Offs=000017  Size=000004  Align=00001  Fill=0000
 /home/kobi/cc65/lib/atari.lib(condes.o):
     CODE              Offs=0000B6  Size=00000C  Align=00001  Fill=0000
-    DATA              Offs=00001A  Size=000025  Align=00001  Fill=0000
+    DATA              Offs=00001B  Size=000025  Align=00001  Fill=0000
     ONCE              Offs=000000  Size=00000C  Align=00001  Fill=0000
 /home/kobi/cc65/lib/atari.lib(crt0.o):
     BSS               Offs=000001  Size=000005  Align=00001  Fill=0000
@@ -42,17 +43,18 @@ ZEROPAGE              000082  00009B  00001A  00001
 STARTUP               002000  002062  000063  00001
 ONCE                  002063  00206E  00000C  00001
 CODE                  00206F  0021CD  00015F  00001
-DATA                  0021CE  00220C  00003F  00001
-BSS                   00220D  002212  000006  00001
+DATA                  0021CE  00220D  000040  00001
+BSS                   00220E  002213  000006  00001
 SYSCHK                002E00  002EF5  0000F6  00001
 CHARSET_0             005000  0053FF  000400  00001
 CHARSET_1             005400  0057FF  000400  00001
+CHARSET_2             005800  005BFF  000400  00001
 SCREEN                007000  0071DF  0001E0  00001
 
 
 Exports list by name:
 ---------------------
-__BSS_RUN__               00220D RLA    __BSS_SIZE__              000006 REA    
+__BSS_RUN__               00220E RLA    __BSS_SIZE__              000006 REA    
 __CONSTRUCTOR_COUNT__     000000 REA    __CONSTRUCTOR_TABLE__     00206F RLA    
 __DESTRUCTOR_COUNT__      000000 REA    __DESTRUCTOR_TABLE__      0021CE RLA    
 __LOWCODE_RUN__           002063 RLA    __LOWCODE_SIZE__          000000 REA    
@@ -86,7 +88,7 @@ donelib                   002125 RLA    popax                     002131 RLA
 incsp2                    002139 RLA    _memcpy                   002147 RLA    
 popptr1                   002183 RLA    pushax                    002195 RLA    
 zerobss                   0021AB RLA    __DESTRUCTOR_TABLE__      0021CE RLA    
-__BSS_RUN__               00220D RLA    __SYSTEM_CHECK__          002E47 REA    
+__BSS_RUN__               00220E RLA    __SYSTEM_CHECK__          002E47 REA    
 
 
 
@@ -126,7 +128,7 @@ __SYSCHKHDR__ ([linker generated]):
 __SYSCHKTRL__ ([linker generated]):
     system_check.o            atari/system_check.s(28)
 __SYSTEM_CHECK__ (system_check.o):
-    [linker generated]        atari.cfg(35)
+    [linker generated]        atari.cfg(36)
     [linker generated]        atari.cfg(7)
 _main (main.o):
     callmain.o                runtime/callmain.s(11)
@@ -154,7 +156,7 @@ ptr3 (zeropage.o):
     memcpy.o                  common/memcpy.s(15)
 pushax (pushax.o):
     callmain.o                runtime/callmain.s(11)
-    main.o                    main.s(315)
+    main.o                    main.s(316)
 sp (zeropage.o):
     incsp2.o                  runtime/incsp2.s(8)
     pushax.o                  runtime/pushax.s(8)
@@ -162,7 +164,7 @@ sp (zeropage.o):
     memcpy.o                  common/memcpy.s(15)
     crt0.o                    /home/kobi/cc65/asminc/zeropage.inc(11)
 start (crt0.o):
-    [linker generated]        atari.cfg(34)
+    [linker generated]        atari.cfg(35)
 zerobss (zerobss.o):
     crt0.o                    atari/crt0.s(15)
 

@@ -8,6 +8,7 @@
 
 #define CHARSET0_MEM	0x5000
 #define CHARSET1_MEM	0x5400
+#define CHARSET2_MEM	0x5800
 #define SCREEN_MEM	0x7000
 #define DLIST_MEM		0x6C00	// aligned to 1K
 //extern unsigned char *L_DLIST_MEM;
@@ -16,9 +17,9 @@ extern unsigned char *L_CHARSET0_MEM;
 extern unsigned char *L_CHARSET1_MEM;
 
 
-unsigned char charset_array[] = {CHARSET0_MEM >> 8, CHARSET1_MEM >> 8};
+unsigned char charset_array[] = {CHARSET0_MEM >> 8, CHARSET1_MEM >> 8, CHARSET2_MEM >> 8};
 
-// CHARSET DLI CHANGES IN LINES: [0, 7]
+// CHARSET DLI CHANGES IN LINES: [0, 4, 9]
 unsigned char antic4_display_list[] = {
 	DL_BLK8,
 	DL_BLK8,
@@ -29,12 +30,12 @@ unsigned char antic4_display_list[] = {
 	DL_CHR40x16x4,
 	DL_CHR40x16x4,
 	DL_CHR40x16x4,
+	DL_DLI(DL_CHR40x16x4),
+	DL_CHR40x16x4,
 	DL_CHR40x16x4,
 	DL_CHR40x16x4,
 	DL_CHR40x16x4,
 	DL_DLI(DL_CHR40x16x4),
-	DL_CHR40x16x4,
-	DL_CHR40x16x4,
 	DL_CHR40x16x4,
 	DL_CHR40x16x4,
 	DL_JVB,
@@ -61,11 +62,11 @@ void main(void)
 	OS.sdlst=(void*)DLIST_MEM;
 
 	// SET COLORS
-	OS.color0 = 92;
-	OS.color1 = 50;
-	OS.color2 = 24;
-	OS.color3 = 140;
-	OS.color4 = 140;
+	OS.color0 = 34;
+	OS.color1 = 38;
+	OS.color2 = 28;
+	OS.color3 = 208;
+	OS.color4 = 208;
 
 	charset_array_size = sizeof(charset_array);
 	setup_dli();
