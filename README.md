@@ -18,6 +18,9 @@ PIL/Pillow (Python Imaging Library/PIL fork)
 python -m pip install --upgrade pip
 python -m pip install --upgrade Pil
 
+For image background you will also need ImageTK from PIL. To install on Ubuntu use:
+sudo apt-get install python3-pil python3-pil.imagetk
+
 Optional requirements:
 CC65 cross compiler
 Altirra or any other emulator for the Atari 8-Bit computer (tested with Altirra on a PAL Atari 800XL ROM)
