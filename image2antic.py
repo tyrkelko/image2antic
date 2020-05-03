@@ -8,53 +8,10 @@ from tkinter import ttk
 import configparser
 import os.path
 from tkinter import *
-from PIL import Image
+from PIL import Image, ImageTk
 import copy
 from pathlib import Path
-
-a8_palette = [	( 45, 45, 45),( 59, 59, 59),( 73, 73, 73),( 87, 87, 87),(101,101,101),(115,115,115),(129,129,129),(143,143,143),
-				(157,157,157),(171,171,171),(185,185,185),(199,199,199),(213,213,213),(227,227,227),(241,241,241),(255,255,255),
-				( 92, 35,  0),(106, 49,  0),(120, 63,  0),(134, 77, 10),(148, 91, 24),(162,105, 38),(176,119, 52),(190,133, 66),
-				(204,147, 80),(218,161, 94),(232,175,108),(246,189,122),(255,203,136),(255,217,150),(255,231,164),(255,245,178),
-				(105, 20,  9),(119, 34, 23),(133, 48, 37),(147, 62, 51),(161, 76, 65),(175, 90, 79),(189,104, 93),(203,118,107),
-				(217,132,121),(231,146,135),(245,160,149),(255,174,163),(255,188,177),(255,202,191),(255,216,205),(255,230,219),
-				(108, 10, 56),(122, 24, 70),(136, 38, 84),(150, 52, 98),(164, 66,112),(178, 80,126),(192, 94,140),(206,108,154),
-				(220,122,168),(234,136,182),(248,150,196),(255,164,210),(255,178,224),(255,192,238),(255,206,252),(255,220,255),
-				(100,  5,101),(114, 19,115),(128, 33,129),(142, 47,143),(156, 61,157),(170, 75,171),(184, 89,185),(198,103,199),
-				(212,117,213),(226,131,227),(240,145,241),(254,159,255),(255,173,255),(255,187,255),(255,201,255),(255,215,255),
-				( 82,  7,137),( 96, 21,151),(110, 35,165),(124, 49,179),(138, 63,193),(152, 77,207),(166, 91,221),(180,105,235),
-				(194,119,249),(208,133,255),(222,147,255),(236,161,255),(250,175,255),(255,189,255),(255,203,255),(255,217,255),
-				( 58, 16,156),( 72, 30,170),( 86, 44,184),(100, 58,198),(114, 72,212),(128, 86,226),(142,100,240),(156,114,254),
-				(170,128,255),(184,142,255),(198,156,255),(212,170,255),(226,184,255),(240,198,255),(254,212,255),(255,226,255),
-				( 31, 30,156),( 45, 44,170),( 59, 58,184),( 73, 72,198),( 87, 86,212),(101,100,226),(115,114,240),(129,128,254),
-				(143,142,255),(157,156,255),(171,170,255),(185,184,255),(199,198,255),(213,212,255),(227,226,255),(241,240,255),
-				(  7, 46,137),( 21, 60,151),( 35, 74,165),( 49, 88,179),( 63,102,193),( 77,116,207),( 91,130,221),(105,144,235),
-				(119,158,249),(133,172,255),(147,186,255),(161,200,255),(175,214,255),(189,228,255),(203,242,255),(217,255,255),
-				(  0, 62,101),(  3, 76,115),( 17, 90,129),( 31,104,143),( 45,118,157),( 59,132,171),( 73,146,185),( 87,160,199),
-				(101,174,213),(115,188,227),(129,202,241),(143,216,255),(157,230,255),(171,244,255),(185,255,255),(199,255,255),
-				(  0, 75, 56),(  0, 89, 70),(  9,103, 84),( 23,117, 98),( 37,131,112),( 51,145,126),( 65,159,140),( 79,173,154),
-				( 93,187,168),(107,201,182),(121,215,196),(135,229,210),(149,243,224),(163,255,238),(177,255,252),(191,255,255),
-				(  0, 82,  9),(  0, 96, 23),( 12,110, 37),( 26,124, 51),( 40,138, 65),( 54,152, 79),( 68,166, 93),( 82,180,107),
-				( 96,194,121),(110,208,135),(124,222,149),(138,236,163),(152,250,177),(166,255,191),(180,255,205),(194,255,219),
-				(  0, 83,  0),( 11, 97,  0),( 25,111,  0),( 39,125, 10),( 53,139, 24),( 67,153, 38),( 81,167, 52),( 95,181, 66),
-				(109,195, 80),(123,209, 94),(137,223,108),(151,237,122),(165,251,136),(179,255,150),(193,255,164),(207,255,178),
-				( 19, 78,  0),( 33, 92,  0),( 47,106,  0),( 61,120,  0),( 75,134,  0),( 89,148, 11),(103,162, 25),(117,176, 39),
-				(131,190, 53),(145,204, 67),(159,218, 81),(173,232, 95),(187,246,109),(201,255,123),(215,255,137),(229,255,151),
-				( 45, 67,  0),( 59, 81,  0),( 73, 95,  0),( 87,109,  0),(101,123,  0),(115,137,  1),(129,151, 15),(143,165, 29),
-				(157,179, 43),(171,193, 57),(185,207, 71),(199,221, 85),(213,235, 99),(227,249,113),(241,255,127),(255,255,141),
-				( 70, 51,  0),( 84, 65,  0),( 98, 79,  0),(112, 93,  0),(126,107,  0),(140,121, 11),(154,135, 25),(168,149, 39),
-				(182,163, 53),(196,177, 67),(210,191, 81),(224,205, 95),(238,219,109),(252,233,123),(255,247,137),(255,255,151) ]
-
-def find_nearest_color(r,g,b):
-    min = 255*255*255*255 # impossible max value
-    min_index = -1
-    for i in range(256):
-        rp,gp,bp = a8_palette[i]
-        distance = abs((r*r+g*g+b*b) - (rp*rp+gp*gp+bp*bp))
-        if distance < min:
-            min = distance
-            min_index = i
-    return min_index
+import shlex, subprocess
 
 def find_pal_color(r,g,b):
     Hue_Dictionary = {11:135,12:112.5,13:90,14:67.5,15:45,1:22.5,2:337.5,3:315,4:292.5,5:270,6:225,7:202.5,8:180,9:157.5,10:135}
@@ -100,12 +57,6 @@ def find_pal_color(r,g,b):
     else:
         Hue_A8 = closest_h_index
 
-#for i in range(0,255,64):
-#    for j in range(0,255,64):
-#        for k in range(0,255,64):
-#            find_pal_color(i,j,k)
-#            print("RGB(",str(i),str(j),str(k),") is A8(",str(Hue_A8), str(Lum_A8),")")
-
 # get configuration with previous working directory and parameters
 config = configparser.RawConfigParser()
 
@@ -129,11 +80,12 @@ if not os.path.exists('image2antic.cfg'):
 config.read('image2antic.cfg')
 input_directory = config.get('InputImage', 'Directory')
 input_filename = config.get('InputImage', 'Filename')
-input_directory = config.get('Output', 'AnticMode')
+antic_mode = config.get('Output', 'AnticMode')
 
 #------------------------------------------------------------------------
 
-
+def rgb_to_hex(rgb):
+    return '#%02x%02x%02x' % rgb
 
 
 #------------------------------------------------------------
@@ -146,10 +98,24 @@ def update(section, key, value):
         config.write(output)
 #------------------------------------------------------------
 
+def exec_emulator_with_build():
+    global working_directory
+    command_line = "wine /home/kobi/Altirra-3.10/Altirra.exe "+working_directory+".xex"
+    print(command_line)
+    # TODO: complete with configuration and execution accordingly
+
+
+def exec_cc65_build():
+    global working_directory
+    command_line = "/home/kobi/cc65/bin/cl65 --debug-info -Wl --dbgfile,"+working_directory+"/"+working_directory+".lab -m "+working_directory+"/"+working_directory+".map -Ln "+working_directory+"/"+working_directory+".lbl -t atari -Oi "+working_directory+"/segments.s main.c -o "+working_directory+"/"+working_directory+".xex -C atari.cfg"
+    print(command_line)
+    # TODO: complete with configuration and execution accordingly
+    
 def process_cc65_code():
     global input_filename
     print("processing...")
     rgb_im = img.convert("RGB")
+    global working_directory
     working_directory = input_filename.split(".")[0]
     Path(working_directory).mkdir(parents=True, exist_ok=True)
 
@@ -348,6 +314,8 @@ def process_cc65_code():
     main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str)).replace("##COLOR0##", str(color0)).replace("##COLOR1##", str(color1)).replace("##COLOR2##", str(color2)).replace("##COLOR3##", str(color3)).replace("##COLOR4##", str(color4))
     mainCFile = open(working_directory+"/main.c", "w+")
     mainCFile.write(main_c_file)
+    exec_cc65_build()
+    exec_emulator_with_build()
     
 # main loop handler class
 class Root(Tk):
@@ -357,38 +325,118 @@ class Root(Tk):
         self.title("Image2Antic")
 
         self.minsize(640, 400)
+        self.resizable(width=False, height=False)
+        self.grid_columnconfigure(index = 1, minsize = 640)
         #self.wm_iconbitmap('icon.ico')
  
-    # label frame for input file settings
-        self.labelFrame = ttk.LabelFrame(self, text = "Input File")
-        self.labelFrame.grid(column = 1, row = 3, padx = 20, pady = 20)
-        self.button()
-        self.imageParamsLabel = ttk.Label(self.labelFrame, text = "")
-        self.imageParamsLabel.grid(column = 1, row = 1)
+        self.previewFrame = ttk.LabelFrame(self, text = "Input Image Preview", width = 560, height = 192)
+        self.previewFrame.grid(sticky = "NSEW", column = 1, row = 1, padx = 20, pady = 20)
+        
+        self.previewTopLabel = ttk.Label(self.previewFrame, text = "Image Preview", width = 25, background = "white")
+        self.previewTopLabel.grid(column = 1, row = 1, padx = 20, pady = 20)
+
+        self.previewLabel = ttk.Label(self.previewFrame, text = "Browse to choose an image", width = 25, background = "white")
+        self.previewLabel.grid(column = 1, row = 2, rowspan = 5, padx = 20, pady = 20)
+        
+        self.imageColors = ttk.Label(self.previewFrame, text = "RGB Colors")
+        self.imageColors.grid(sticky = "W", column = 2, row = 1, columnspan = 2, padx = 20)
+        self.imageColor0 = ttk.Label(self.previewFrame, background = "red", width = 3)
+        self.imageColor0.grid(column = 2, row = 2, pady = 3, padx = 20)
+        self.imageColor1 = ttk.Label(self.previewFrame, background = "green", width = 3)
+        self.imageColor1.grid(column = 2, row = 3, pady = 3, padx = 20)
+        self.imageColor2 = ttk.Label(self.previewFrame, background = "blue", width = 3)
+        self.imageColor2.grid(column = 2, row = 4, pady = 3, padx = 20)
+        self.imageColor3 = ttk.Label(self.previewFrame, background = "black", width = 3)
+        self.imageColor3.grid(column = 2, row = 5, pady = 3)
+        self.imageColorValue0 = ttk.Label(self.previewFrame, text = "#FF0000")
+        self.imageColorValue0.grid(column = 3, row = 2)
+        self.imageColorValue1 = ttk.Label(self.previewFrame, text = "#00FF00")
+        self.imageColorValue1.grid(column = 3, row = 3)
+        self.imageColorValue2 = ttk.Label(self.previewFrame, text = "#0000FF")
+        self.imageColorValue2.grid(column = 3, row = 4)
+        self.imageColorValue3 = ttk.Label(self.previewFrame, text = "#000000")
+        self.imageColorValue3.grid(column = 3, row = 5)
+
+        self.imageSize = ttk.Label(self.previewFrame, text = "Size: 0, 0")
+        self.imageSize.grid(sticky = "W", column = 2, row = 6, columnspan = 2, padx = 20, pady = 3)
+
+        self.chooseImage = ttk.Label(self.previewFrame, text = "Choose Image")
+        self.chooseImage.grid(sticky = "W", column = 4, row = 1, columnspan = 1, padx = 20, pady = 3)
+        
+        self.browseButton()
  
     # label frame for output file settings
-        self.labelFrame1 = ttk.LabelFrame(self, text = "Output File")
-        self.labelFrame1.grid(column = 1, row = 10, padx = 20, pady = 20)
-        self.button1()
-        self.imageParamsLabel1 = ttk.Label(self.labelFrame1, text = "")
-        self.imageParamsLabel1.grid(column = 1, row = 1)
- 
+        self.outputFrame = ttk.LabelFrame(self, text = "Output Image Preview:")
+        self.outputFrame.grid(sticky="W", column = 1, row = 2, padx = 20, pady = 20)
+
+        self.outputPreviewLabel = ttk.Label(self.outputFrame, text = "Browse to choose an image", width = 25, background = "white")
+        self.outputPreviewLabel.grid(column = 1, row = 1, rowspan = 7, padx = 20, pady = 20)
+        
+        self.outputImageColors = ttk.Label(self.outputFrame, text = "A8 Colors (PAL)")
+        self.outputImageColors.grid(sticky = "W", column = 2, row = 1, columnspan = 2)
+        self.outputImageColor0 = ttk.Label(self.outputFrame, background = "red", width = 3)
+        self.outputImageColor0.grid(column = 2, row = 2, pady = 3)
+        self.outputImageColor1 = ttk.Label(self.outputFrame, background = "green", width = 3)
+        self.outputImageColor1.grid(column = 2, row = 3, pady = 3)
+        self.outputImageColor2 = ttk.Label(self.outputFrame, background = "blue", width = 3)
+        self.outputImageColor2.grid(column = 2, row = 4, pady = 3)
+        self.outputImageColor3 = ttk.Label(self.outputFrame, background = "black", width = 3)
+        self.outputImageColor3.grid(column = 2, row = 5, pady = 3)
+        self.outputImageColorValue0 = ttk.Label(self.outputFrame, text = "#FF0000")
+        self.outputImageColorValue0.grid(column = 3, row = 2)
+        self.outputImageColorValue1 = ttk.Label(self.outputFrame, text = "#00FF00")
+        self.outputImageColorValue1.grid(column = 3, row = 3)
+        self.outputImageColorValue2 = ttk.Label(self.outputFrame, text = "#0000FF")
+        self.outputImageColorValue2.grid(column = 3, row = 4)
+        self.outputImageColorValue3 = ttk.Label(self.outputFrame, text = "#000000")
+        self.outputImageColorValue3.grid(column = 3, row = 5)
+
+        self.outputImageSize = ttk.Label(self.outputFrame, text = "Size: 0, 0")
+        self.outputImageSize.grid(sticky = "W", column = 2, row = 6, columnspan = 2)
+        
+        
+        antic_modes = [("Text 4 (40x24,4 colors)", 1), ("Text 5 (40x12,4 colors)", 2),]
+
+        v = StringVar()
+        v.set("L") # initialize
+
+        for text, mode in antic_modes:
+            self.anticRadioButtons = ttk.Radiobutton(self.outputFrame, text=text, variable=antic_mode, value=mode)
+            self.anticRadioButtons.grid(column = 4, row = mode, padx = 20, pady = 5)
+
+        interleave = IntVar()
+        
+        self.interleaveCheckBox = ttk.Checkbutton(self.outputFrame, text = "Interleave", variable = interleave)
+        self.interleaveCheckBox.grid(column = 4, row = 5, padx = 20, pady = 5, sticky = "W")
+        
+        self.processButton()
+
+        
     # browse button to open a file browser on click
-    def button(self):
-        self.button = ttk.Button(self.labelFrame, text = "Browse",command = self.fileDialog)
-        self.button.grid(column = 2, row = 1)
+    def browseButton(self):
+        self.browseButton = ttk.Button(self.previewFrame, text = "Browse",command = self.fileDialog)
+        self.browseButton.grid(column = 4, row = 6, sticky="E", padx = 20, pady = 20)
         
     # browse button to begin output process
-    def button1(self):
-        self.button1 = ttk.Button(self.labelFrame1, text = "Process",command = process_cc65_code)
-        self.button1.grid(column = 2, row = 1)
-        
+    def processButton(self):
+        self.processButton = ttk.Button(self.outputFrame, text = "Process",command = process_cc65_code)
+        self.processButton.grid(column = 4, row =6, sticky="E", padx = 20, pady = 20)
+
+    def showImg(self):
+        load = Image.open(input_directory+'/'+input_filename)
+        load.thumbnail((160, 96), Image.ANTIALIAS)
+        render = ImageTk.PhotoImage(load)
+
+        # labels can be text or images
+        self.previewLabel.configure(image = render, text = "", width = 200)
+        self.previewLabel.image = render
+        #self.previewLabel.place(x=0, y=0)
+
     # when invoked, open the image and extract information on it
     def imageViewer(self):
         global input_directory
         global input_filename
         global img
-        global my_a8_palette
         global rgb_colors
         
         img = Image.open(input_directory+'/'+input_filename) 
@@ -403,7 +451,6 @@ class Root(Tk):
                     colors.append(px[i,j])
         rgb_im = img.convert('RGB')
         rgb_colors = []
-        my_a8_palette = []
         global yet_another_a8_palette
         yet_another_a8_palette = []
         for j in range(h):
@@ -411,21 +458,36 @@ class Root(Tk):
                 r, g, b = rgb_im.getpixel((i, j))
                 if ((r,g,b) not in rgb_colors):
                     rgb_colors.append((r,g,b))
-                    my_a8_palette.append(find_nearest_color(r,g,b))
                     find_pal_color(r,g,b)
                     yet_another_a8_palette.append((Hue_A8, Lum_A8))
         print(rgb_colors)
-        self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(my_a8_palette) + "\nPalette (A8c)" + str(yet_another_a8_palette))
-        if (len(my_a8_palette) < 5):
-            for i in range (len(my_a8_palette), 5):
-                my_a8_palette.append(0)
+        #self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(yet_another_a8_palette))
+        if (len(yet_another_a8_palette) < 5):
+            for i in range (len(yet_another_a8_palette), 5):
+                yet_another_a8_palette.append(0)
+
+        # now create the ImageTk PhotoImage:
+        self.showImg()
+        
+        self.imageColor0.configure(background = rgb_to_hex(rgb_colors[0]))
+        self.imageColor1.configure(background = rgb_to_hex(rgb_colors[1]))
+        self.imageColor2.configure(background = rgb_to_hex(rgb_colors[2]))
+        self.imageColor3.configure(background = rgb_to_hex(rgb_colors[3]))
+
+        self.imageColorValue0.configure(text = rgb_to_hex(rgb_colors[0]))
+        self.imageColorValue1.configure(text = rgb_to_hex(rgb_colors[1]))
+        self.imageColorValue2.configure(text = rgb_to_hex(rgb_colors[2]))
+        self.imageColorValue3.configure(text = rgb_to_hex(rgb_colors[3]))
+
+        self.imageSize.configure(text = "Size: " + str(w)+", "+str(h))
+
     # file dialog for choosing our image 2 antic file
     def fileDialog(self):
         global input_directory
         global input_filename
         self.filename =  filedialog.askopenfilename(initialdir = input_directory,title = "Select file",filetypes = (("GIF files","*.gif"),("PNG files","*.png"),("all files","*.*")))
-        self.label = ttk.Label(self.labelFrame, text = "")
-        self.label.grid(column = 1, row = 2)
+        #self.label = ttk.Label(self.labelFrame, text = "")
+        #self.label.grid(column = 1, row = 2)
         input_directory = self.filename.split('/')
         input_filename = input_directory.pop()
         input_directory = '/'.join(input_directory)
