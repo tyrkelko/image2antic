@@ -5,56 +5,47 @@
 
 from tkinter import filedialog
 from tkinter import ttk
+from tkinter import StringVar
 import configparser
 import os.path
 from tkinter import *
-from PIL import Image
+from PIL import Image, ImageTk
 import copy
 from pathlib import Path
+import shlex, subprocess
 
-a8_palette = [	( 45, 45, 45),( 59, 59, 59),( 73, 73, 73),( 87, 87, 87),(101,101,101),(115,115,115),(129,129,129),(143,143,143),
-				(157,157,157),(171,171,171),(185,185,185),(199,199,199),(213,213,213),(227,227,227),(241,241,241),(255,255,255),
-				( 92, 35,  0),(106, 49,  0),(120, 63,  0),(134, 77, 10),(148, 91, 24),(162,105, 38),(176,119, 52),(190,133, 66),
-				(204,147, 80),(218,161, 94),(232,175,108),(246,189,122),(255,203,136),(255,217,150),(255,231,164),(255,245,178),
-				(105, 20,  9),(119, 34, 23),(133, 48, 37),(147, 62, 51),(161, 76, 65),(175, 90, 79),(189,104, 93),(203,118,107),
-				(217,132,121),(231,146,135),(245,160,149),(255,174,163),(255,188,177),(255,202,191),(255,216,205),(255,230,219),
-				(108, 10, 56),(122, 24, 70),(136, 38, 84),(150, 52, 98),(164, 66,112),(178, 80,126),(192, 94,140),(206,108,154),
-				(220,122,168),(234,136,182),(248,150,196),(255,164,210),(255,178,224),(255,192,238),(255,206,252),(255,220,255),
-				(100,  5,101),(114, 19,115),(128, 33,129),(142, 47,143),(156, 61,157),(170, 75,171),(184, 89,185),(198,103,199),
-				(212,117,213),(226,131,227),(240,145,241),(254,159,255),(255,173,255),(255,187,255),(255,201,255),(255,215,255),
-				( 82,  7,137),( 96, 21,151),(110, 35,165),(124, 49,179),(138, 63,193),(152, 77,207),(166, 91,221),(180,105,235),
-				(194,119,249),(208,133,255),(222,147,255),(236,161,255),(250,175,255),(255,189,255),(255,203,255),(255,217,255),
-				( 58, 16,156),( 72, 30,170),( 86, 44,184),(100, 58,198),(114, 72,212),(128, 86,226),(142,100,240),(156,114,254),
-				(170,128,255),(184,142,255),(198,156,255),(212,170,255),(226,184,255),(240,198,255),(254,212,255),(255,226,255),
-				( 31, 30,156),( 45, 44,170),( 59, 58,184),( 73, 72,198),( 87, 86,212),(101,100,226),(115,114,240),(129,128,254),
-				(143,142,255),(157,156,255),(171,170,255),(185,184,255),(199,198,255),(213,212,255),(227,226,255),(241,240,255),
-				(  7, 46,137),( 21, 60,151),( 35, 74,165),( 49, 88,179),( 63,102,193),( 77,116,207),( 91,130,221),(105,144,235),
-				(119,158,249),(133,172,255),(147,186,255),(161,200,255),(175,214,255),(189,228,255),(203,242,255),(217,255,255),
-				(  0, 62,101),(  3, 76,115),( 17, 90,129),( 31,104,143),( 45,118,157),( 59,132,171),( 73,146,185),( 87,160,199),
-				(101,174,213),(115,188,227),(129,202,241),(143,216,255),(157,230,255),(171,244,255),(185,255,255),(199,255,255),
-				(  0, 75, 56),(  0, 89, 70),(  9,103, 84),( 23,117, 98),( 37,131,112),( 51,145,126),( 65,159,140),( 79,173,154),
-				( 93,187,168),(107,201,182),(121,215,196),(135,229,210),(149,243,224),(163,255,238),(177,255,252),(191,255,255),
-				(  0, 82,  9),(  0, 96, 23),( 12,110, 37),( 26,124, 51),( 40,138, 65),( 54,152, 79),( 68,166, 93),( 82,180,107),
-				( 96,194,121),(110,208,135),(124,222,149),(138,236,163),(152,250,177),(166,255,191),(180,255,205),(194,255,219),
-				(  0, 83,  0),( 11, 97,  0),( 25,111,  0),( 39,125, 10),( 53,139, 24),( 67,153, 38),( 81,167, 52),( 95,181, 66),
-				(109,195, 80),(123,209, 94),(137,223,108),(151,237,122),(165,251,136),(179,255,150),(193,255,164),(207,255,178),
-				( 19, 78,  0),( 33, 92,  0),( 47,106,  0),( 61,120,  0),( 75,134,  0),( 89,148, 11),(103,162, 25),(117,176, 39),
-				(131,190, 53),(145,204, 67),(159,218, 81),(173,232, 95),(187,246,109),(201,255,123),(215,255,137),(229,255,151),
-				( 45, 67,  0),( 59, 81,  0),( 73, 95,  0),( 87,109,  0),(101,123,  0),(115,137,  1),(129,151, 15),(143,165, 29),
-				(157,179, 43),(171,193, 57),(185,207, 71),(199,221, 85),(213,235, 99),(227,249,113),(241,255,127),(255,255,141),
-				( 70, 51,  0),( 84, 65,  0),( 98, 79,  0),(112, 93,  0),(126,107,  0),(140,121, 11),(154,135, 25),(168,149, 39),
-				(182,163, 53),(196,177, 67),(210,191, 81),(224,205, 95),(238,219,109),(252,233,123),(255,247,137),(255,255,151) ]
+#pal palette
+a8_palette = [	                (  0,  0,  0),( 33, 33, 33),( 75, 75, 75),(107,107,107),(132,132,132),(164,164,164),(206,206,206),(255,255,255), # black   0 -  15
+				( 68,  0,  0),(104, 23,  0),(134, 55,  0),(173, 91, 00),(196,116, 31),(230,157, 62),(250,191,101),(255,222,140), # brown  16 -  31
+				( 79,  0,  0),(118,  0,  0),(152, 40, 26),(184, 74, 59),(217, 97, 83),(243,142,124),(253,174,157),(255,206,189), # red    32 -  47
+				( 91,  0,  0),(205,  0, 44),(158, 24, 75),(192, 65,108),(220, 87,132),(255,125,175),(253,155,206),(251,198,240), # pink   48 -  63
+                                
+                                ( 85,  0, 51),(118,  0, 90),(144, 14,123),(188, 58,156),(213, 81,183),(247,116,222),(255,144,255),(255,186,255), # purple 64 -  79
+				( 56,  0,103),(103,  0,138),(133, 16,172),(162, 62,214),(184, 88,238),(235,112,252),(252,150,249),(255,186,255), # purple 80 -  95
+                                ( 36,  0,103),( 67,  0,176),( 99, 24,205),(137, 69,244),(166, 89,253),(198,121,251),(224,157,250),(255,197,255), # Pur-Bl 96 - 111
+  				(  0,  0,144),(  0, 32, 44),( 36, 55,209),( 71, 97,242),(100,124,255),(134,158,255),(163,188,255),(206,232,249), #       112 - 127
+                                
+				(  0,  0,103),(  0, 51,128),(  0, 84,176),( 45,113,214),( 70,148,233),(103,182,255),(134,217,255),(171,255,255),				
+				(  0, 32, 47),(  0, 64, 83),(  0,104,128),( 30,139,159),( 49,165,178),( 95,195,218),(125,232,242),(163,251,253),                                
+				(  0, 43,  0),(  0, 80, 32),(  0,128, 64),( 71, 97,242),( 51,172,128),( 86,212,165),(119,247,199),(206,251,238),
+				(  0, 51,  0),(  0, 87,  0),(  0,124,  0),( 50,160,  0),( 50,160,  0),(103,220, 62),(139,255, 97),(184,255,128), # check middle of this line - color repeats
+                                
+				(  0, 42,  0),(  0, 80,  0),( 39,115,  0),( 80,142, 11),( 96,176,  0),(101,167, 15),(175,244, 76),(210,255,103),
+				(  0, 26,  0),( 75, 99,  0),( 80, 96, 21),(103,132, 11),(132,156,  0),(172,198, 26),(206,229, 60),(237,255, 96),
+				( 34,  0,  0),( 75, 40,  0),(111, 83, 11),(138,115, 11),(168,137, 12),(210,179, 37),(237,187, 70),(255,245,105),
+				( 68,  0,  0),(104, 23,  0),(134, 55,  0),(173, 91, 00),(196,116, 31),(230,157, 62),(250,191,101),(255,222,140)]
 
 def find_nearest_color(r,g,b):
-    min = 255*255*255*255 # impossible max value
-    min_index = -1
-    for i in range(256):
-        rp,gp,bp = a8_palette[i]
-        distance = abs((r*r+g*g+b*b) - (rp*rp+gp*gp+bp*bp))
-        if distance < min:
-            min = distance
-            min_index = i
-    return min_index
+	min = 255*255*255*255 # impossible max value
+	min_index = -1
+	for i in range(128):
+		rp,gp,bp = a8_palette[i]
+		#distance = abs((r*r+g*g+b*b) - (rp*rp+gp*gp+bp*bp))
+		distance = abs(pow(r-rp,2)+pow(g-gp,2)+pow(b-bp,2))
+		if distance < min:
+			min = distance
+			min_index = i
+	return min_index * 2
 
 def find_pal_color(r,g,b):
     Hue_Dictionary = {11:135,12:112.5,13:90,14:67.5,15:45,1:22.5,2:337.5,3:315,4:292.5,5:270,6:225,7:202.5,8:180,9:157.5,10:135}
@@ -100,11 +91,44 @@ def find_pal_color(r,g,b):
     else:
         Hue_A8 = closest_h_index
 
-#for i in range(0,255,64):
-#    for j in range(0,255,64):
-#        for k in range(0,255,64):
-#            find_pal_color(i,j,k)
-#            print("RGB(",str(i),str(j),str(k),") is A8(",str(Hue_A8), str(Lum_A8),")")
+
+def find_rgb_color(Color_A8):
+    Hue_RGB = {0:"#000000",2:"#212121",4:"#4b4b4b",6:"#6b6b6b",8:"#848484",10:"#a4a4a4",12:"#cecece",14:"#efefef",
+               16:"#440000",18:"#681700",20:"#863700",22:"#ad5b00",24:"#c4741f",26:"#e69d3e",28:"#fabf65",30:"#ffde8c",
+               32:"#4f0000",34:"#760500",36:"#98281a",38:"#b84a3b",40:"#d96153",42:"#f38e7c",44:"#fdae9d",46:"#ffcebd",
+               48:"#5b0000",50:"#85002c",52:"#9e184b",54:"#c0416c",56:"#dc5784",58:"#ff7daf",60:"#fd9bce",62:"#fbc6f0",
+               64:"#550033",66:"#76015a",68:"#900e7b",70:"#bc3a9c",72:"#d551b7",74:"#f774de",76:"#ff91ff",78:"#ffbaff",
+               80:"#380167",82:"#68028a",84:"#8510ac",86:"#a23ed6",88:"#b855ee",90:"#eb70fc",92:"#fc96f9",94:"#ffbaff",
+               96:"#24008b",98:"#4300b0",100:"#6318cd",102:"#8945f4",104:"#a659fd",106:"#c679fb",108:"#e09dfa",110:"#ffc5ff",
+               112:"#05008e",114:"#0119ad",116:"#2437d1",118:"#4761f2",120:"#647cff",122:"#869eff",124:"#a3bcfe",126:"#cee8f9",
+               128:"#000067",130:"#003380",132:"#0554b0",134:"#2d71d6",136:"#4694e9",138:"#67b6ff",140:"#86d9ff",142:"#abffff",
+               144:"#00202f",146:"#044153",148:"#006679",150:"#1e8b9f",152:"#31a5b2",154:"#5fc3da",156:"#7de8f2",158:"#a3fbfd",
+               160:"#002b00",162:"#005020",164:"#007741",166:"#4761f2",168:"#33ac83",170:"#56d4a5",172:"#77f7c7",174:"#a5fbee",
+               176:"#003300",178:"#005700",180:"#057c08",182:"#32a003",184:"#32a003",186:"#67dc3e",188:"#8bfe61",190:"#b8fe81",
+               192:"#002a00",194:"#005000",196:"#277300",198:"#4f8e0b",200:"#60b000",202:"#65a70f",204:"#aff44c",206:"#d2fd67",
+               208:"#001a00",210:"#4b6300",212:"#4f6115",214:"#68840b",216:"#849c00",218:"#acc61b",220:"#cee53b",222:"#edfe60",
+               224:"#220000",226:"#4a2800",228:"#695300",230:"#8a730b",232:"#a8890c",234:"#d2b325",236:"#edd946",238:"#fff569",
+               240:"#3e0000",242:"#651700",244:"#7e3a09",246:"#a95d00",248:"#c3761e",250:"#eb9936",252:"#febb62",254:"#fee185"}
+    return (Hue_RGB[Color_A8])
+
+def cga_quantize(image):
+    
+    pal_image= Image.new("P", (1,1))
+    #pal_image.putpalette( (16,16,16, 32,32,32, 64,64,64, 128,128,128) + (0,0,0)*252)
+    c0r=a8_palette[int(140/2)][0]
+    c0g=a8_palette[int(140/2)][1]
+    c0b=a8_palette[int(140/2)][2]
+    c1r=a8_palette[int(92/2)][0]
+    c1g=a8_palette[int(92/2)][1]
+    c1b=a8_palette[int(92/2)][2]
+    c2r=a8_palette[int(50/2)][0]
+    c2g=a8_palette[int(50/2)][1]
+    c2b=a8_palette[int(50/2)][2]
+    c3r=a8_palette[int(24/2)][0]
+    c3g=a8_palette[int(24/2)][1]
+    c3b=a8_palette[int(24/2)][2]
+    pal_image.putpalette((c0r, c0g, c0b, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b ) + (0,0,0)*252)
+    return image.convert("RGB").quantize(palette=pal_image)
 
 # get configuration with previous working directory and parameters
 config = configparser.RawConfigParser()
@@ -129,11 +153,13 @@ if not os.path.exists('image2antic.cfg'):
 config.read('image2antic.cfg')
 input_directory = config.get('InputImage', 'Directory')
 input_filename = config.get('InputImage', 'Filename')
-input_directory = config.get('Output', 'AnticMode')
+global antic_mode
+antic_mode = config.get('Output', 'AnticMode')
 
 #------------------------------------------------------------------------
 
-
+def rgb_to_hex(rgb):
+    return '#%02x%02x%02x' % rgb
 
 
 #------------------------------------------------------------
@@ -146,10 +172,26 @@ def update(section, key, value):
         config.write(output)
 #------------------------------------------------------------
 
+def exec_emulator_with_build():
+    global working_directory
+    global antic_mode
+    command_line = "wine /home/kobi/Altirra-3.10/Altirra.exe "+working_directory+".xex"
+    print(command_line)
+    # TODO: complete with configuration and execution accordingly
+
+
+def exec_cc65_build():
+    global working_directory
+    command_line = "/home/kobi/cc65/bin/cl65 --debug-info -Wl --dbgfile,"+working_directory+".lab -m "+working_directory+".map -Ln "+working_directory+".lbl -t atari -Oi segments.s main.c -o "+working_directory+".xex -C atari.cfg"
+    print(command_line)
+    # TODO: complete with configuration and execution accordingly
+    
 def process_cc65_code():
     global input_filename
+    global antic_mode
     print("processing...")
     rgb_im = img.convert("RGB")
+    global working_directory
     working_directory = input_filename.split(".")[0]
     Path(working_directory).mkdir(parents=True, exist_ok=True)
 
@@ -165,10 +207,9 @@ def process_cc65_code():
     #define CHARSET4_MEM 	0x6000	// aligned to 1K
 
     antic_target_modes = {
-        "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8},
-        "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8}
+        "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x8x4"},
+        "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x16x4"}
     }
-    antic_target = "5"
     segments_file_text = ""
     atari_cfg_memory = ""
     atari_cfg_segments = ""
@@ -207,7 +248,7 @@ def process_cc65_code():
         temp_char[y] = 0
     chars[charset_index, chars_index] = copy.deepcopy(temp_char)
     chars_index = chars_index + 1
-    for j in range(round(h/8)): 
+    for j in range(antic_target_modes[antic_mode]["lines"]): #range(round(h/8)): 
         if (chars_index > 87):
             charset_index = charset_index + 1
             chars_index = 0
@@ -216,17 +257,15 @@ def process_cc65_code():
             chars[charset_index, chars_index] = copy.deepcopy(temp_char)
             chars_index = chars_index + 1
             charset_dli_change.append(j - 1)
-        for i in range (antic_target_modes[antic_target]["columns"]):
-            if (i < round(w/4)):
+        for i in range (antic_target_modes[antic_mode]["columns"]):
+            if ((i < round(w/4)) and (j < round(h/8))):
                 for y in range (8):
                     temp_char[y] = 0
                     for x in range (4):
                         r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
-                        #if (r,g,b in rgb_colors):
                         pixel = rgb_colors.index((r,g,b))
                             
-                        double_bit_pixel = 2 if (pixel == 5) else 1 if (pixel == 7) else pixel
-                        temp_char[y] = temp_char[y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * pixel #double_bit_pixel
+                        temp_char[y] = temp_char[y] + (pixel << (6-2*x))
                 char_exists = False
                 for char in chars:
                     if char[0] == charset_index and chars[char] == temp_char:
@@ -259,7 +298,6 @@ def process_cc65_code():
         for i in range(chars_in_set * 8, 128 * 8):
             charsetArray.append(0)
         print ("filled blanks to 128 chars")
-        
         charsetByteArray = bytearray(charsetArray)
         charsetBinaryFile = open(working_directory+"/charset_"+str(charset_number)+"_data.bin", "wb")
         charsetBinaryFile.write(charsetByteArray)
@@ -277,8 +315,9 @@ def process_cc65_code():
         charsets_size.append(chars_in_set)
 
     print ("generate screen_data")
-    for j in range(antic_target_modes[antic_target]["lines"]):
-        for i in range (antic_target_modes[antic_target]["columns"]):
+    print(screen)
+    for j in range(antic_target_modes[antic_mode]["lines"]):
+        for i in range (antic_target_modes[antic_mode]["columns"]):
             screenArray.append(screen[i,j])
 
     atari_cfg_memory = atari_cfg_memory + "# dlist load chunk (generated with image2antic.py)\n"
@@ -305,14 +344,14 @@ def process_cc65_code():
     atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI(DL_BLK8),\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS(DL_CHR40x16x4),\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS("+antic_target_modes[antic_mode]["dl"]+"),\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	0x00,\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	SCREEN_MEM >> 8,\n"
-    for i in range(1,12):
+    for i in range(1,int(antic_target_modes[antic_mode]["lines"])):
         if i in charset_dli_change:
-            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI(DL_CHR40x16x4),\n"
+            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI("+antic_target_modes[antic_mode]["dl"]+"),\n"
         else:
-            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_CHR40x16x4,\n"
+            atari_main_c_dl_array = atari_main_c_dl_array + "	"+antic_target_modes[antic_mode]["dl"]+",\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	DL_JVB,\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	0x00,\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "};\n"
@@ -348,6 +387,8 @@ def process_cc65_code():
     main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str)).replace("##COLOR0##", str(color0)).replace("##COLOR1##", str(color1)).replace("##COLOR2##", str(color2)).replace("##COLOR3##", str(color3)).replace("##COLOR4##", str(color4))
     mainCFile = open(working_directory+"/main.c", "w+")
     mainCFile.write(main_c_file)
+    exec_cc65_build()
+    exec_emulator_with_build()
     
 # main loop handler class
 class Root(Tk):
@@ -357,38 +398,127 @@ class Root(Tk):
         self.title("Image2Antic")
 
         self.minsize(640, 400)
+        self.resizable(width=False, height=False)
+        self.grid_columnconfigure(index = 1, minsize = 640)
         #self.wm_iconbitmap('icon.ico')
  
-    # label frame for input file settings
-        self.labelFrame = ttk.LabelFrame(self, text = "Input File")
-        self.labelFrame.grid(column = 1, row = 3, padx = 20, pady = 20)
-        self.button()
-        self.imageParamsLabel = ttk.Label(self.labelFrame, text = "")
-        self.imageParamsLabel.grid(column = 1, row = 1)
+        self.previewFrame = ttk.LabelFrame(self, text = "Convert An Image To Atari 800XL CC65 Source", width = 560, height = 192)
+        self.previewFrame.grid(sticky = "NSEW", column = 1, row = 1, padx = 20, pady = 20)
+        
+        self.previewTopLabel = ttk.Label(self.previewFrame, text = "Source Image Preview", width = 25)
+        self.previewTopLabel.grid(column = 1, row = 1, padx = 20, pady = 20)
+
+        self.previewLabel = ttk.Label(self.previewFrame, text = "Browse to choose an image", width = 25, background = "white")
+        self.previewLabel.grid(column = 1, row = 2, rowspan = 5, padx = 20, pady = 20)
+        
+        self.imageColors = ttk.Label(self.previewFrame, text = "RGB Colors")
+        self.imageColors.grid(sticky = "W", column = 2, row = 1, columnspan = 2, padx = 20)
+        self.imageColor0 = ttk.Label(self.previewFrame, background = "red", width = 3)
+        self.imageColor0.grid(column = 2, row = 2, pady = 3, padx = 20)
+        self.imageColor1 = ttk.Label(self.previewFrame, background = "green", width = 3)
+        self.imageColor1.grid(column = 2, row = 3, pady = 3, padx = 20)
+        self.imageColor2 = ttk.Label(self.previewFrame, background = "blue", width = 3)
+        self.imageColor2.grid(column = 2, row = 4, pady = 3, padx = 20)
+        self.imageColor3 = ttk.Label(self.previewFrame, background = "black", width = 3)
+        self.imageColor3.grid(column = 2, row = 5, pady = 3)
+        self.imageColorValue0 = ttk.Label(self.previewFrame, text = "#FF0000")
+        self.imageColorValue0.grid(column = 3, row = 2)
+        self.imageColorValue1 = ttk.Label(self.previewFrame, text = "#00FF00")
+        self.imageColorValue1.grid(column = 3, row = 3)
+        self.imageColorValue2 = ttk.Label(self.previewFrame, text = "#0000FF")
+        self.imageColorValue2.grid(column = 3, row = 4)
+        self.imageColorValue3 = ttk.Label(self.previewFrame, text = "#000000")
+        self.imageColorValue3.grid(column = 3, row = 5)
+
+        self.imageSize = ttk.Label(self.previewFrame, text = "Size: 0, 0")
+        self.imageSize.grid(sticky = "W", column = 2, row = 6, columnspan = 2, padx = 20, pady = 3)
+
+        self.chooseImage = ttk.Label(self.previewFrame, text = "Choose Image")
+        self.chooseImage.grid(sticky = "W", column = 4, row = 1, columnspan = 1, padx = 20, pady = 3)
+        
+        self.browseButton()
  
     # label frame for output file settings
-        self.labelFrame1 = ttk.LabelFrame(self, text = "Output File")
-        self.labelFrame1.grid(column = 1, row = 10, padx = 20, pady = 20)
-        self.button1()
-        self.imageParamsLabel1 = ttk.Label(self.labelFrame1, text = "")
-        self.imageParamsLabel1.grid(column = 1, row = 1)
- 
+
+        self.outputPreviewLabel = ttk.Label(self.previewFrame, text = "Browse to choose an image", width = 25, background = "white")
+        self.outputPreviewLabel.grid(column = 1, row = 10, rowspan = 7, padx = 20, pady = 20)
+        
+        self.outputImageColors = ttk.Label(self.previewFrame, text = "A8 Colors (PAL)")
+        self.outputImageColors.grid(sticky = "W", column = 2, row = 11, columnspan = 2)
+        self.outputImageColor0 = ttk.Label(self.previewFrame, background = find_rgb_color(find_nearest_color(255,0,0)), width = 3)
+        self.outputImageColor0.grid(column = 2, row = 12, pady = 3)
+        self.outputImageColor1 = ttk.Label(self.previewFrame, background = find_rgb_color(find_nearest_color(0,255,0)), width = 3)
+        self.outputImageColor1.grid(column = 2, row = 13, pady = 3)
+        self.outputImageColor2 = ttk.Label(self.previewFrame, background = find_rgb_color(find_nearest_color(0,0,255)), width = 3)
+        self.outputImageColor2.grid(column = 2, row = 14, pady = 3)
+        self.outputImageColor3 = ttk.Label(self.previewFrame, background = find_rgb_color(find_nearest_color(0,0,0)), width = 3)
+        self.outputImageColor3.grid(column = 2, row = 15, pady = 3)
+        self.outputImageColorValue0 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(255,0,0)) + "(" + str(find_nearest_color(255,0,0)) + ")")
+        self.outputImageColorValue0.grid(column = 3, row = 12)
+        self.outputImageColorValue1 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(0,255,0)) + "(" + str(find_nearest_color(0,255,0)) + ")")
+        self.outputImageColorValue1.grid(column = 3, row = 13)
+        self.outputImageColorValue2 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(0,0,255)) + "(" + str(find_nearest_color(0,0,255)) + ")")
+        self.outputImageColorValue2.grid(column = 3, row = 14)
+        self.outputImageColorValue3 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(0,0,0)) + "(" + str(find_nearest_color(0,0,0)) + ")")
+        self.outputImageColorValue3.grid(column = 3, row = 15)
+
+        self.outputImageSize = ttk.Label(self.previewFrame, text = "Size: 0, 0")
+        self.outputImageSize.grid(sticky = "W", column = 2, row = 16, columnspan = 2)
+        
+        
+        antic_modes = [("Text 4 (40x24,4 colors)", 1, "4"), ("Text 5 (40x12,4 colors)", 2, "5"),]
+
+        global antic_mode
+        self.rb_antic_mode = StringVar()
+        self.rb_antic_mode.set(antic_mode)
+
+        
+        # antic_mode_changed - update config file and global variable
+        def antic_mode_changed(*args):
+            global antic_mode
+            antic_mode = self.rb_antic_mode.get()
+            update("Output", "anticmode", antic_mode)
+    
+        
+        self.rb_antic_mode.trace("w", antic_mode_changed)
+        for text, num, mode in antic_modes:
+            self.anticRadioButtons = ttk.Radiobutton(self.previewFrame, text=text, variable=self.rb_antic_mode, value=mode)
+            self.anticRadioButtons.grid(column = 4, row = num + 10, padx = 20, pady = 5)
+
+        interleave = IntVar()
+        
+        self.interleaveCheckBox = ttk.Checkbutton(self.previewFrame, text = "Interleave", variable = interleave)
+        self.interleaveCheckBox.grid(column = 4, row = 15, padx = 20, pady = 5, sticky = "W")
+        
+        self.processButton()
+
+        
     # browse button to open a file browser on click
-    def button(self):
-        self.button = ttk.Button(self.labelFrame, text = "Browse",command = self.fileDialog)
-        self.button.grid(column = 2, row = 1)
+    def browseButton(self):
+        self.browseButton = ttk.Button(self.previewFrame, text = "Browse",command = self.fileDialog)
+        self.browseButton.grid(column = 4, row = 6, sticky="E", padx = 20, pady = 20)
         
     # browse button to begin output process
-    def button1(self):
-        self.button1 = ttk.Button(self.labelFrame1, text = "Process",command = process_cc65_code)
-        self.button1.grid(column = 2, row = 1)
+    def processButton(self):
+        self.processButton = ttk.Button(self.previewFrame, text = "Process",command = process_cc65_code)
+        self.processButton.grid(column = 4, row =16, sticky="E", padx = 20, pady = 20)
+
         
+    def showImg(self):
+        load = Image.open(input_directory+'/'+input_filename)
+        load.thumbnail((160, 96), Image.ANTIALIAS)
+        render = ImageTk.PhotoImage(load)
+
+        # labels can be text or images
+        self.previewLabel.configure(image = render, text = "", width = 200)
+        self.previewLabel.image = render
+        #self.previewLabel.place(x=0, y=0)
+
     # when invoked, open the image and extract information on it
     def imageViewer(self):
         global input_directory
         global input_filename
         global img
-        global my_a8_palette
         global rgb_colors
         
         img = Image.open(input_directory+'/'+input_filename) 
@@ -403,7 +533,6 @@ class Root(Tk):
                     colors.append(px[i,j])
         rgb_im = img.convert('RGB')
         rgb_colors = []
-        my_a8_palette = []
         global yet_another_a8_palette
         yet_another_a8_palette = []
         for j in range(h):
@@ -411,21 +540,53 @@ class Root(Tk):
                 r, g, b = rgb_im.getpixel((i, j))
                 if ((r,g,b) not in rgb_colors):
                     rgb_colors.append((r,g,b))
-                    my_a8_palette.append(find_nearest_color(r,g,b))
                     find_pal_color(r,g,b)
                     yet_another_a8_palette.append((Hue_A8, Lum_A8))
         print(rgb_colors)
-        self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(my_a8_palette) + "\nPalette (A8c)" + str(yet_another_a8_palette))
-        if (len(my_a8_palette) < 5):
-            for i in range (len(my_a8_palette), 5):
-                my_a8_palette.append(0)
+        #self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(yet_another_a8_palette))
+        if (len(yet_another_a8_palette) < 5):
+            for i in range (len(yet_another_a8_palette), 5):
+                yet_another_a8_palette.append(0)
+
+        # now create the ImageTk PhotoImage:
+        self.showImg()
+        
+        self.imageColor0.configure(background = rgb_to_hex(rgb_colors[0]))
+        self.imageColor1.configure(background = rgb_to_hex(rgb_colors[1]))
+        self.imageColor2.configure(background = rgb_to_hex(rgb_colors[2]))
+        self.imageColor3.configure(background = rgb_to_hex(rgb_colors[3]))
+
+        self.imageColorValue0.configure(text = rgb_to_hex(rgb_colors[0]))
+        self.imageColorValue1.configure(text = rgb_to_hex(rgb_colors[1]))
+        self.imageColorValue2.configure(text = rgb_to_hex(rgb_colors[2]))
+        self.imageColorValue3.configure(text = rgb_to_hex(rgb_colors[3]))
+
+        self.outputImageColor0.configure(background = find_rgb_color(yet_another_a8_palette[0][0]*16+yet_another_a8_palette[0][1]))
+        self.outputImageColor1.configure(background = find_rgb_color(yet_another_a8_palette[1][0]*16+yet_another_a8_palette[1][1]))
+        self.outputImageColor2.configure(background = find_rgb_color(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]))
+        self.outputImageColor3.configure(background = find_rgb_color(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]))
+
+        self.outputImageColorValue0.configure(text = hex(yet_another_a8_palette[0][0]*16+yet_another_a8_palette[0][1]) + "(" + str(yet_another_a8_palette[0][0]*16+yet_another_a8_palette[0][1]) + ")")
+        self.outputImageColorValue1.configure(text = hex(yet_another_a8_palette[1][0]*16+yet_another_a8_palette[1][1]) + "(" + str(yet_another_a8_palette[1][0]*16+yet_another_a8_palette[1][1]) + ")")
+        self.outputImageColorValue2.configure(text = hex(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]) + "(" + str(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]) + ")")
+        self.outputImageColorValue3.configure(text = hex(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]) + "(" + str(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]) + ")")
+
+        preview_a8 = img.convert('RGB')
+        preview_a8 = cga_quantize(preview_a8)
+        preview_a8.thumbnail((160, 96), Image.ANTIALIAS)
+        preview_render = ImageTk.PhotoImage(preview_a8)
+        self.outputPreviewLabel.configure(image = preview_render, text = "", width = 200)
+        self.outputPreviewLabel.image = preview_render
+
+        self.imageSize.configure(text = "Size: " + str(w)+", "+str(h))
+
     # file dialog for choosing our image 2 antic file
     def fileDialog(self):
         global input_directory
         global input_filename
         self.filename =  filedialog.askopenfilename(initialdir = input_directory,title = "Select file",filetypes = (("GIF files","*.gif"),("PNG files","*.png"),("all files","*.*")))
-        self.label = ttk.Label(self.labelFrame, text = "")
-        self.label.grid(column = 1, row = 2)
+        #self.label = ttk.Label(self.labelFrame, text = "")
+        #self.label.grid(column = 1, row = 2)
         input_directory = self.filename.split('/')
         input_filename = input_directory.pop()
         input_directory = '/'.join(input_directory)
