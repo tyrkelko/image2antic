@@ -584,7 +584,7 @@ class Root(Tk):
     def fileDialog(self):
         global input_directory
         global input_filename
-        self.filename =  filedialog.askopenfilename(initialdir = input_directory,title = "Select file",filetypes = (("GIF files","*.gif"),("PNG files","*.png"),("all files","*.*")))
+        self.filename =  filedialog.askopenfilename(initialdir = input_directory,title = "Select file",filetypes = (("all files","*.*"),("GIF files","*.gif"),("PNG files","*.png")))
         #self.label = ttk.Label(self.labelFrame, text = "")
         #self.label.grid(column = 1, row = 2)
         input_directory = self.filename.split('/')
