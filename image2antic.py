@@ -140,6 +140,7 @@ def init():
     config.set('InputImage', 'Filename', '*.gif')
     config.add_section('Output')
     config.set('Output', 'AnticMode', '5')
+    config.set('Output', 'SkipColumn', '0')
     with open('image2antic.cfg', 'w') as output:
         config.write(output)
 
@@ -155,7 +156,8 @@ input_directory = config.get('InputImage', 'Directory')
 input_filename = config.get('InputImage', 'Filename')
 global antic_mode
 antic_mode = config.get('Output', 'AnticMode')
-
+global skip_column
+skip_column = config.get('Output', 'SkipColumn', fallback='0')
 #------------------------------------------------------------------------
 
 def rgb_to_hex(rgb):
@@ -217,10 +219,13 @@ def process_cc65_code():
     atari_main_c_dl_array = ""
     charsets_mem_list = []
     w, h = img.size
+    if (skip_column == "1"):
+        rgb_im = rgb_im.resize((int(w/2), h), resample = 0)
+        w = int(w/2)
     mode_to_bpp = {'1':1, 'L':8, 'P':8, 'RGB':24, 'RGBA':32, 'CMYK':32, 'YCbCr':24, 'I':32, 'F':32}
     d = mode_to_bpp[img.mode]
 
-    # arrange an array of ANTIC 4 COLOR TEXT mode 4x8 tiles
+    # arrange an array of ANTIC COLOR TEXT mode 4x8 tiles
     tiles = {}
     for j in range(round(h/8)):
         for i in range (round(w / 4)):
@@ -231,6 +236,9 @@ def process_cc65_code():
                     pixel = round(((r*8+g*8+b*8)/640))
                     double_bit_pixel = 2 if (pixel == 5) else 1 if (pixel == 7) else pixel
                     tiles[i,j,y] = tiles[i,j,y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * double_bit_pixel
+                # reduce byte size in case exceeded byte size due to additional colors.
+                while (tiles[i,j,y] > 255):
+                    tiles[i,j,y]-=256
     # group distinct chars and create screen char map
     chars = {}
     screenArray = []
@@ -259,23 +267,33 @@ def process_cc65_code():
             charset_dli_change.append(j - 1)
         for i in range (antic_target_modes[antic_mode]["columns"]):
             if ((i < round(w/4)) and (j < round(h/8))):
+                fifth_color = 0
                 for y in range (8):
                     temp_char[y] = 0
                     for x in range (4):
                         r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
                         pixel = rgb_colors.index((r,g,b))
                             
-                        temp_char[y] = temp_char[y] + (pixel << (6-2*x))
+                        temp_char[y] = temp_char[y] + (min(pixel, 3) << (6-2*x))
+                        if (pixel == 4):
+                                fifth_color = 1
+
                 char_exists = False
                 for char in chars:
                     if char[0] == charset_index and chars[char] == temp_char:
                         char_exists = True
                         chars_reuse = chars_reuse + 1
                         screen[i,j] = char[1]
+                        if (fifth_color == 1):
+                            screen[i,j] += 128
+                    
                 if (not char_exists):
                     chars_count = chars_count + 1
                     chars[charset_index, chars_index] = copy.deepcopy(temp_char)
                     screen[i,j] = chars_index
+                    if (fifth_color == 1):
+                        screen[i,j] += 128
+                    
                     chars_index = chars_index + 1
             else:
                 screen[i,j] = 0
@@ -380,7 +398,7 @@ def process_cc65_code():
     color0 = yet_another_a8_palette[1][0] * 16 + yet_another_a8_palette[1][1]
     color1 = yet_another_a8_palette[2][0] * 16 + yet_another_a8_palette[2][1]
     color2 = yet_another_a8_palette[3][0] * 16 + yet_another_a8_palette[3][1]
-    color3 = color4 #255-color0 #yet_another_a8_palette[4][0] << 4 + yet_another_a8_palette[4][1]
+    color3 = yet_another_a8_palette[4][0] * 16 + yet_another_a8_palette[4][1]
     print(color0, color1, color2, color3, color4)
     
     mainCTemplateFile = open("sources_templates/main.c", "r")
@@ -412,7 +430,7 @@ class Root(Tk):
         self.previewLabel.grid(column = 1, row = 2, rowspan = 5, padx = 20, pady = 20)
         
         self.imageColors = ttk.Label(self.previewFrame, text = "RGB Colors")
-        self.imageColors.grid(sticky = "W", column = 2, row = 1, columnspan = 2, padx = 20)
+        self.imageColors.grid(sticky = "W", column = 1, row = 1, columnspan = 2, padx = 20)
         self.imageColor0 = ttk.Label(self.previewFrame, background = "red", width = 3)
         self.imageColor0.grid(column = 2, row = 2, pady = 3, padx = 20)
         self.imageColor1 = ttk.Label(self.previewFrame, background = "green", width = 3)
@@ -420,7 +438,9 @@ class Root(Tk):
         self.imageColor2 = ttk.Label(self.previewFrame, background = "blue", width = 3)
         self.imageColor2.grid(column = 2, row = 4, pady = 3, padx = 20)
         self.imageColor3 = ttk.Label(self.previewFrame, background = "black", width = 3)
-        self.imageColor3.grid(column = 2, row = 5, pady = 3)
+        self.imageColor3.grid(column = 2, row = 5, pady = 3, padx = 20)
+        self.imageColor4 = ttk.Label(self.previewFrame, background = "black", width = 3)
+        self.imageColor4.grid(column = 2, row = 6, pady = 3, padx = 20)
         self.imageColorValue0 = ttk.Label(self.previewFrame, text = "#FF0000")
         self.imageColorValue0.grid(column = 3, row = 2)
         self.imageColorValue1 = ttk.Label(self.previewFrame, text = "#00FF00")
@@ -429,12 +449,14 @@ class Root(Tk):
         self.imageColorValue2.grid(column = 3, row = 4)
         self.imageColorValue3 = ttk.Label(self.previewFrame, text = "#000000")
         self.imageColorValue3.grid(column = 3, row = 5)
+        self.imageColorValue4 = ttk.Label(self.previewFrame, text = "#000000")
+        self.imageColorValue4.grid(column = 3, row = 6)
 
         self.imageSize = ttk.Label(self.previewFrame, text = "Size: 0, 0")
-        self.imageSize.grid(sticky = "W", column = 2, row = 6, columnspan = 2, padx = 20, pady = 3)
+        self.imageSize.grid(sticky = "W", column = 4, row = 6, columnspan = 2, padx = 20, pady = 3)
 
         self.chooseImage = ttk.Label(self.previewFrame, text = "Choose Image")
-        self.chooseImage.grid(sticky = "W", column = 4, row = 1, columnspan = 1, padx = 20, pady = 3)
+        self.chooseImage.grid(sticky = "W", column = 4, row = 2, columnspan = 1, padx = 20, pady = 3)
         
         self.browseButton()
  
@@ -453,6 +475,8 @@ class Root(Tk):
         self.outputImageColor2.grid(column = 2, row = 14, pady = 3)
         self.outputImageColor3 = ttk.Label(self.previewFrame, background = find_rgb_color(find_nearest_color(0,0,0)), width = 3)
         self.outputImageColor3.grid(column = 2, row = 15, pady = 3)
+        self.outputImageColor4= ttk.Label(self.previewFrame, background = find_rgb_color(find_nearest_color(0,0,0)), width = 3)
+        self.outputImageColor4.grid(column = 2, row = 16, pady = 3)
         self.outputImageColorValue0 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(255,0,0)) + "(" + str(find_nearest_color(255,0,0)) + ")")
         self.outputImageColorValue0.grid(column = 3, row = 12)
         self.outputImageColorValue1 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(0,255,0)) + "(" + str(find_nearest_color(0,255,0)) + ")")
@@ -461,9 +485,11 @@ class Root(Tk):
         self.outputImageColorValue2.grid(column = 3, row = 14)
         self.outputImageColorValue3 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(0,0,0)) + "(" + str(find_nearest_color(0,0,0)) + ")")
         self.outputImageColorValue3.grid(column = 3, row = 15)
+        self.outputImageColorValue4 = ttk.Label(self.previewFrame, text = hex(find_nearest_color(0,0,0)) + "(" + str(find_nearest_color(0,0,0)) + ")")
+        self.outputImageColorValue4.grid(column = 3, row = 16)
 
         self.outputImageSize = ttk.Label(self.previewFrame, text = "Size: 0, 0")
-        self.outputImageSize.grid(sticky = "W", column = 2, row = 16, columnspan = 2)
+        self.outputImageSize.grid(sticky = "W", column = 4, row = 16, columnspan = 2)
         
         
         antic_modes = [("Text 4 (40x24,4 colors)", 1, "4"), ("Text 5 (40x12,4 colors)", 2, "5"),]
@@ -484,6 +510,20 @@ class Root(Tk):
         for text, num, mode in antic_modes:
             self.anticRadioButtons = ttk.Radiobutton(self.previewFrame, text=text, variable=self.rb_antic_mode, value=mode)
             self.anticRadioButtons.grid(column = 4, row = num + 10, padx = 20, pady = 5)
+
+        # skip odd columns for processing images designed for Antic 4 with 2x1 pixel ratio.
+        def skip_column_changed(*args):
+            global skip_column
+            skip_column = self.rb_skip_column.get()
+            update("Output", "skip_column", skip_column)
+            
+        global skip_column
+        self.rb_skip_column = StringVar()
+        self.rb_skip_column.set(skip_column)
+        self.rb_skip_column.trace("w", skip_column_changed)
+        
+        self.skipColumnCheckBox = ttk.Checkbutton(self.previewFrame, text = "Skip column (Antic 4 compatibility)", variable = self.rb_skip_column)
+        self.skipColumnCheckBox.grid(column = 4, row = 14, padx = 20, pady = 5, sticky = "W")
 
         interleave = IntVar()
         
@@ -544,9 +584,10 @@ class Root(Tk):
                     yet_another_a8_palette.append((Hue_A8, Lum_A8))
         print(rgb_colors)
         #self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(yet_another_a8_palette))
-        if (len(yet_another_a8_palette) < 5):
-            for i in range (len(yet_another_a8_palette), 5):
-                yet_another_a8_palette.append(0)
+        if (len(yet_another_a8_palette) < 6):
+            for i in range (len(yet_another_a8_palette), 6):
+                rgb_colors.append((0,0,0))
+                yet_another_a8_palette.append((0, 0))
 
         # now create the ImageTk PhotoImage:
         self.showImg()
@@ -555,21 +596,25 @@ class Root(Tk):
         self.imageColor1.configure(background = rgb_to_hex(rgb_colors[1]))
         self.imageColor2.configure(background = rgb_to_hex(rgb_colors[2]))
         self.imageColor3.configure(background = rgb_to_hex(rgb_colors[3]))
+        self.imageColor4.configure(background = rgb_to_hex(rgb_colors[4]))
 
         self.imageColorValue0.configure(text = rgb_to_hex(rgb_colors[0]))
         self.imageColorValue1.configure(text = rgb_to_hex(rgb_colors[1]))
         self.imageColorValue2.configure(text = rgb_to_hex(rgb_colors[2]))
         self.imageColorValue3.configure(text = rgb_to_hex(rgb_colors[3]))
+        self.imageColorValue4.configure(text = rgb_to_hex(rgb_colors[4]))
 
         self.outputImageColor0.configure(background = find_rgb_color(yet_another_a8_palette[0][0]*16+yet_another_a8_palette[0][1]))
         self.outputImageColor1.configure(background = find_rgb_color(yet_another_a8_palette[1][0]*16+yet_another_a8_palette[1][1]))
         self.outputImageColor2.configure(background = find_rgb_color(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]))
         self.outputImageColor3.configure(background = find_rgb_color(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]))
+        self.outputImageColor4.configure(background = find_rgb_color(yet_another_a8_palette[4][0]*16+yet_another_a8_palette[4][1]))
 
         self.outputImageColorValue0.configure(text = hex(yet_another_a8_palette[0][0]*16+yet_another_a8_palette[0][1]) + "(" + str(yet_another_a8_palette[0][0]*16+yet_another_a8_palette[0][1]) + ")")
         self.outputImageColorValue1.configure(text = hex(yet_another_a8_palette[1][0]*16+yet_another_a8_palette[1][1]) + "(" + str(yet_another_a8_palette[1][0]*16+yet_another_a8_palette[1][1]) + ")")
         self.outputImageColorValue2.configure(text = hex(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]) + "(" + str(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]) + ")")
         self.outputImageColorValue3.configure(text = hex(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]) + "(" + str(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]) + ")")
+        self.outputImageColorValue4.configure(text = hex(yet_another_a8_palette[4][0]*16+yet_another_a8_palette[4][1]) + "(" + str(yet_another_a8_palette[4][0]*16+yet_another_a8_palette[4][1]) + ")")
 
         preview_a8 = img.convert('RGB')
         preview_a8 = cga_quantize(preview_a8)
