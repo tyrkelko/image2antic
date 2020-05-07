@@ -222,7 +222,6 @@ def process_cc65_code():
     if (skip_column == "1"):
         rgb_im = rgb_im.resize((int(w/2), h), resample = 0)
         w = int(w/2)
-        rgb_im.show()
     mode_to_bpp = {'1':1, 'L':8, 'P':8, 'RGB':24, 'RGBA':32, 'CMYK':32, 'YCbCr':24, 'I':32, 'F':32}
     d = mode_to_bpp[img.mode]
 
@@ -275,11 +274,9 @@ def process_cc65_code():
                         r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
                         pixel = rgb_colors.index((r,g,b))
                             
-                        temp_char[y] = temp_char[y] + (pixel << (6-2*x))
-                    
-                    while (temp_char[y] > 255):
-                        fifth_color = 1
-                        temp_char[y]-=256
+                        temp_char[y] = temp_char[y] + (min(pixel, 3) << (6-2*x))
+                        if (pixel == 4):
+                                fifth_color = 1
 
                 char_exists = False
                 for char in chars:
@@ -287,14 +284,14 @@ def process_cc65_code():
                         char_exists = True
                         chars_reuse = chars_reuse + 1
                         screen[i,j] = char[1]
-                        if (fifth_color == 0):
+                        if (fifth_color == 1):
                             screen[i,j] += 128
                     
                 if (not char_exists):
                     chars_count = chars_count + 1
                     chars[charset_index, chars_index] = copy.deepcopy(temp_char)
                     screen[i,j] = chars_index
-                    if (fifth_color == 0):
+                    if (fifth_color == 1):
                         screen[i,j] += 128
                     
                     chars_index = chars_index + 1
