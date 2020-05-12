@@ -47,6 +47,7 @@ def find_nearest_color(r,g,b):
 			min_index = i
 	return min_index * 2
 
+
 def find_pal_color(r,g,b):
     Hue_Dictionary = {11:135,12:112.5,13:90,14:67.5,15:45,1:22.5,2:337.5,3:315,4:292.5,5:270,6:225,7:202.5,8:180,9:157.5,10:135}
     R = float(r/255)
@@ -111,25 +112,6 @@ def find_rgb_color(Color_A8):
                240:"#3e0000",242:"#651700",244:"#7e3a09",246:"#a95d00",248:"#c3761e",250:"#eb9936",252:"#febb62",254:"#fee185"}
     return (Hue_RGB[Color_A8])
 
-def cga_quantize(image):
-    
-    pal_image= Image.new("P", (1,1))
-    #pal_image.putpalette( (16,16,16, 32,32,32, 64,64,64, 128,128,128) + (0,0,0)*252)
-    c0r=a8_palette[int(140/2)][0]
-    c0g=a8_palette[int(140/2)][1]
-    c0b=a8_palette[int(140/2)][2]
-    c1r=a8_palette[int(92/2)][0]
-    c1g=a8_palette[int(92/2)][1]
-    c1b=a8_palette[int(92/2)][2]
-    c2r=a8_palette[int(50/2)][0]
-    c2g=a8_palette[int(50/2)][1]
-    c2b=a8_palette[int(50/2)][2]
-    c3r=a8_palette[int(24/2)][0]
-    c3g=a8_palette[int(24/2)][1]
-    c3b=a8_palette[int(24/2)][2]
-    pal_image.putpalette((c0r, c0g, c0b, c1r, c1g, c1b, c2r, c2g, c2b, c3r, c3g, c3b ) + (0,0,0)*252)
-    return image.convert("RGB").quantize(palette=pal_image)
-
 # get configuration with previous working directory and parameters
 config = configparser.RawConfigParser()
 
@@ -140,7 +122,8 @@ def init():
     config.set('InputImage', 'Filename', '*.gif')
     config.add_section('Output')
     config.set('Output', 'AnticMode', '5')
-    config.set('Output', 'SkipColumn', '0')
+    config.set('Output', 'skip_column', '0')
+    config.set('Output', 'interleave', '0')
     with open('image2antic.cfg', 'w') as output:
         config.write(output)
 
@@ -157,7 +140,10 @@ input_filename = config.get('InputImage', 'Filename')
 global antic_mode
 antic_mode = config.get('Output', 'AnticMode')
 global skip_column
-skip_column = config.get('Output', 'SkipColumn', fallback='0')
+skip_column = config.get('Output', 'skip_column', fallback='0')
+global interleave
+interleave = str(config.get('Output', 'interleave', fallback='0'))
+
 #------------------------------------------------------------------------
 
 def rgb_to_hex(rgb):
@@ -191,32 +177,29 @@ def exec_cc65_build():
 def process_cc65_code():
     global input_filename
     global antic_mode
+    global interleave
+    print("interleave = ", interleave)
     print("processing...")
     rgb_im = img.convert("RGB")
     global working_directory
     working_directory = input_filename.split(".")[0]
     Path(working_directory).mkdir(parents=True, exist_ok=True)
 
-    screen_mem_start = 28672 # 0x7000
-    charset_base_mem_start= 20480 # 0x5000
+    screen_mem_start = 19456            # 0x4C00
+    charset_base_mem_start= 12288       # 0x3000
     
-    #define SCREEN_MEM		0x7000
-    #define DLIST_MEM		0x6C00	// aligned to 1K
-    #define CHARSET0_MEM 	0x5000	// aligned to 1K
-    #define CHARSET1_MEM 	0x5400	// aligned to 1K
-    #define CHARSET2_MEM 	0x5800	// aligned to 1K
-    #define CHARSET3_MEM 	0x5C00	// aligned to 1K
-    #define CHARSET4_MEM 	0x6000	// aligned to 1K
-
     antic_target_modes = {
         "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x8x4"},
         "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x16x4"}
     }
+
     segments_file_text = ""
     atari_cfg_memory = ""
     atari_cfg_segments = ""
     atari_main_c_definitions = ""
     atari_main_c_dl_array = ""
+    atari_main_c_update = ""
+    atari_main_c_draw = ""
     charsets_mem_list = []
     w, h = img.size
     if (skip_column == "1"):
@@ -225,20 +208,36 @@ def process_cc65_code():
     mode_to_bpp = {'1':1, 'L':8, 'P':8, 'RGB':24, 'RGBA':32, 'CMYK':32, 'YCbCr':24, 'I':32, 'F':32}
     d = mode_to_bpp[img.mode]
 
+    columns = antic_target_modes[antic_mode]["columns"]
+    lines = round(h/8)
+
     # arrange an array of ANTIC COLOR TEXT mode 4x8 tiles
     tiles = {}
-    for j in range(round(h/8)):
+    for j in range(lines):
         for i in range (round(w / 4)):
             for y in range (8):
                 tiles[i,j,y] = 0
                 for x in range (4):
-                    r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
+                    if ((i*4+x<w) and (j*8+y<h)):
+                        r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
+                    else:
+                        r, g, b = (0,0,0)  
                     pixel = round(((r*8+g*8+b*8)/640))
                     double_bit_pixel = 2 if (pixel == 5) else 1 if (pixel == 7) else pixel
                     tiles[i,j,y] = tiles[i,j,y] + (64 if x == 0 else 16 if x == 1 else 4 if x == 2 else 1) * double_bit_pixel
                 # reduce byte size in case exceeded byte size due to additional colors.
                 while (tiles[i,j,y] > 255):
                     tiles[i,j,y]-=256
+
+    print("Actual rows and lines: (", i, ",", j, ")")
+    if (int(interleave) > 0):
+            columns = int(w/4)
+            atari_main_c_definitions = atari_main_c_definitions + "#include <peekpoke.h>\n\n"
+            atari_main_c_definitions = atari_main_c_definitions + "#define ROWS " + str(lines) + "\n"
+            atari_main_c_definitions = atari_main_c_definitions + "#define COLS " + str(columns) + "\n"
+            atari_main_c_definitions = atari_main_c_definitions + "#define SCREEN_RIGHT_BOUNDARY " + str(columns - antic_target_modes[antic_mode]["columns"]) + "\n"
+            
+
     # group distinct chars and create screen char map
     chars = {}
     screenArray = []
@@ -256,22 +255,41 @@ def process_cc65_code():
         temp_char[y] = 0
     chars[charset_index, chars_index] = copy.deepcopy(temp_char)
     chars_index = chars_index + 1
-    for j in range(antic_target_modes[antic_mode]["lines"]): #range(round(h/8)): 
-        if (chars_index > 87):
-            charset_index = charset_index + 1
-            chars_index = 0
-            for y in range(8):
-                temp_char[y] = 0
-            chars[charset_index, chars_index] = copy.deepcopy(temp_char)
-            chars_index = chars_index + 1
-            charset_dli_change.append(j - 1)
-        for i in range (antic_target_modes[antic_mode]["columns"]):
+    for j in range(lines): #range(antic_target_modes[antic_mode]["lines"]): #range(round(h/8)):
+        if (int(interleave) == 0):
+                if (chars_index > 87):
+                    charset_index = charset_index + 1
+                    chars_index = 0
+                    for y in range(8):
+                        temp_char[y] = 0
+                    chars[charset_index, chars_index] = copy.deepcopy(temp_char)
+                    chars_index = chars_index + 1
+                    charset_dli_change.append(j - 1)
+        else:
+                if (j > 0):
+                        for y in range(8):
+                            temp_char[y] = 0
+                        chars[charset_index, chars_index] = copy.deepcopy(temp_char)
+                        chars_index = chars_index + 1
+                if (j > 0):
+                        charset_dli_change.append(j)      
+                        charset_index = j % int(interleave)
+                        chars_index = 0
+                        for c_i in chars.keys():
+                                if ((c_i[0] == charset_index) and (c_i[1] > chars_index)):
+                                        chars_index = c_i[1]
+
+                
+        for i in range (columns):
             if ((i < round(w/4)) and (j < round(h/8))):
                 fifth_color = 0
                 for y in range (8):
                     temp_char[y] = 0
                     for x in range (4):
-                        r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
+                        if ((i*4+x < w) and (j*8+y < h)):
+                                r, g, b = rgb_im.getpixel((i*4+x, j*8+y))
+                        else:
+                                r, g, b = (0,0,0)
                         pixel = rgb_colors.index((r,g,b))
                             
                         temp_char[y] = temp_char[y] + (min(pixel, 3) << (6-2*x))
@@ -333,9 +351,8 @@ def process_cc65_code():
         charsets_size.append(chars_in_set)
 
     print ("generate screen_data")
-    print(screen)
     for j in range(antic_target_modes[antic_mode]["lines"]):
-        for i in range (antic_target_modes[antic_mode]["columns"]):
+        for i in range (columns):
             screenArray.append(screen[i,j])
 
     atari_cfg_memory = atari_cfg_memory + "# dlist load chunk (generated with image2antic.py)\n"
@@ -343,7 +360,7 @@ def process_cc65_code():
     atari_cfg_memory = atari_cfg_memory + "# screen data load chunk (generated with image2antic.py)\n"
     atari_cfg_memory = atari_cfg_memory + "SCREEN_MEM: file = %O,               start = "+hex(screen_mem_start).upper().replace("0X", "$")+", size = "+str('0x%04x' % len(screenArray)).upper().replace("0X", "$")+";\n"
     atari_main_c_definitions = atari_main_c_definitions + "#define SCREEN_MEM\t"+hex(screen_mem_start).upper().replace("0X", "0x")+"\n"
-    atari_main_c_definitions = atari_main_c_definitions + "#define DLIST_MEM		0x6C00	// aligned to 1K\n"
+    atari_main_c_definitions = atari_main_c_definitions + "#define DLIST_MEM		0x4800 //0x6C00	// aligned to 1K\n"
     atari_main_c_definitions = atari_main_c_definitions + "//extern unsigned char *L_DLIST_MEM;\n"
     atari_main_c_definitions = atari_main_c_definitions + "extern unsigned char *L_SCREEN_MEM;\n"
     atari_main_c_definitions = atari_main_c_definitions + "extern unsigned char *L_CHARSET0_MEM;\n"
@@ -359,19 +376,28 @@ def process_cc65_code():
 
     atari_main_c_dl_array = atari_main_c_dl_array + "// CHARSET DLI CHANGES IN LINES: " + str(charset_dli_change)+"\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "unsigned char antic4_display_list[] = {\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI(DL_BLK8),\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS("+antic_target_modes[antic_mode]["dl"]+"),\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	0x00,\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	SCREEN_MEM >> 8,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_BLK8,\n"
+    if (int(interleave) > 0):
+            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS(DL_DLI(DL_HSCROL("+antic_target_modes[antic_mode]["dl"]+"))),"
+    else:
+            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS("+antic_target_modes[antic_mode]["dl"]+"),"        
+    atari_main_c_dl_array = atari_main_c_dl_array + "(SCREEN_MEM << 8) >> 8,"
+    atari_main_c_dl_array = atari_main_c_dl_array + "SCREEN_MEM >> 8,\n"
     for i in range(1,int(antic_target_modes[antic_mode]["lines"])):
         if i in charset_dli_change:
-            atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI("+antic_target_modes[antic_mode]["dl"]+"),\n"
+            if (int(interleave) == 0):
+                    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_DLI("+antic_target_modes[antic_mode]["dl"]+"),\n"
+            else:
+                    line_screen_mem_start = screen_mem_start + i * columns
+                    print("line: ", i, "start address: ", hex(line_screen_mem_start), "columns: ", columns)
+                    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_LMS(DL_DLI(DL_HSCROL("+antic_target_modes[antic_mode]["dl"]+"))),"
+                    atari_main_c_dl_array = atari_main_c_dl_array + "((SCREEN_MEM + "+ str(i * columns) +") << 8) >> 8,"
+                    atari_main_c_dl_array = atari_main_c_dl_array + "(SCREEN_MEM + "+ str(i * columns) +") >> 8,\n"
         else:
             atari_main_c_dl_array = atari_main_c_dl_array + "	"+antic_target_modes[antic_mode]["dl"]+",\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_JVB,\n"
-    atari_main_c_dl_array = atari_main_c_dl_array + "	0x00,\n"
+    atari_main_c_dl_array = atari_main_c_dl_array + "	DL_JVB,0x00,DLIST_MEM>>8\n"
     atari_main_c_dl_array = atari_main_c_dl_array + "};\n"
 
     screenByteArray = bytearray(screenArray)
@@ -387,6 +413,7 @@ def process_cc65_code():
     cfgFile.write(cfg_file_str)
 
     charsets_mem_str = ""
+    
     i = 0
     for s in charsets_mem_list:
         if (i > 0):
@@ -394,15 +421,29 @@ def process_cc65_code():
         charsets_mem_str = charsets_mem_str + s + " >> 8"
         i = i + 1
 
+
+    if (int(interleave) > 0):
+            charset_mem_str_tmp = charsets_mem_str
+            for i in range(int(lines / int(interleave)) - 1):
+                    charset_mem_str_tmp = charset_mem_str_tmp + ",\n" + charsets_mem_str
+            charsets_mem_str = charset_mem_str_tmp
+            atari_main_c_update = "	if ((vblank_counter & 0x03) == 3)\n		screen_pos++;\n	ANTIC.hscrol = vblank_counter & 0x03;\n	if (screen_pos > SCREEN_RIGHT_BOUNDARY)\n		screen_pos = 0;\n"
+            atari_main_c_draw = "	i = ROWS;\n	while (--i < 255)\n	{\n		POKE(DLIST_MEM + 4 + 3 * i, (SCREEN_MEM + screen_pos + i * COLS) & 0x00FF);\n		POKE(DLIST_MEM + 5 + 3 * i, (SCREEN_MEM + screen_pos + i * COLS) >> 8);\n	}"
+
     color4 = yet_another_a8_palette[0][0] * 16 + yet_another_a8_palette[0][1]
     color0 = yet_another_a8_palette[1][0] * 16 + yet_another_a8_palette[1][1]
     color1 = yet_another_a8_palette[2][0] * 16 + yet_another_a8_palette[2][1]
     color2 = yet_another_a8_palette[3][0] * 16 + yet_another_a8_palette[3][1]
     color3 = yet_another_a8_palette[4][0] * 16 + yet_another_a8_palette[4][1]
     print(color0, color1, color2, color3, color4)
-    
+
+    if (int(interleave) == 0):
+            csi = 0
+            charset_index = 1
+    else:
+            csi = 1
     mainCTemplateFile = open("sources_templates/main.c", "r")
-    main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str)).replace("##COLOR0##", str(color0)).replace("##COLOR1##", str(color1)).replace("##COLOR2##", str(color2)).replace("##COLOR3##", str(color3)).replace("##COLOR4##", str(color4))
+    main_c_file = mainCTemplateFile.read().replace("##ATARI_MAIN_C_DEFINITIONS##", atari_main_c_definitions).replace("##ATARI_MAIN_C_DL_ARRAY##", atari_main_c_dl_array).replace("##CHARSETS_MEM##", str(charsets_mem_str)).replace("##COLOR0##", str(color0)).replace("##COLOR1##", str(color1)).replace("##COLOR2##", str(color2)).replace("##COLOR3##", str(color3)).replace("##COLOR4##", str(color4)).replace("##CHARSET_INDEX##", str(csi)).replace("##MAIN_C_UPDATE##", atari_main_c_update).replace("##MAIN_C_DRAW##", atari_main_c_draw)
     mainCFile = open(working_directory+"/main.c", "w+")
     mainCFile.write(main_c_file)
     exec_cc65_build()
@@ -519,17 +560,34 @@ class Root(Tk):
             
         global skip_column
         self.rb_skip_column = StringVar()
-        self.rb_skip_column.set(skip_column)
+        self.rb_skip_column.set(str(skip_column))
+        
         self.rb_skip_column.trace("w", skip_column_changed)
         
         self.skipColumnCheckBox = ttk.Checkbutton(self.previewFrame, text = "Skip column (Antic 4 compatibility)", variable = self.rb_skip_column)
         self.skipColumnCheckBox.grid(column = 4, row = 14, padx = 20, pady = 5, sticky = "W")
 
-        interleave = IntVar()
+        # allow user select if the screen has horizontal scroll and if so, how to rotate the charsets between display lines
+        global interleaveOptions
+        interleaveOptions = ["No Scroll", "Single Charset Scroll", "Two Charset Scroll", "Three Charset Scroll", "Four Charset Scroll"]
+        print(interleaveOptions)
+        global interleave
+        def interleave_changed(*args):
+            global interleaveOptions
+            global interleave
+            interleave = interleaveOptions.index(self.rb_interleave.get())
+            update("Output", "interleave", interleave)
+            
         
-        self.interleaveCheckBox = ttk.Checkbutton(self.previewFrame, text = "Interleave", variable = interleave)
-        self.interleaveCheckBox.grid(column = 4, row = 15, padx = 20, pady = 5, sticky = "W")
+        self.rb_interleave = StringVar()
         
+        
+        self.interleaveDropdown = ttk.OptionMenu(self.previewFrame, self.rb_interleave, interleaveOptions[0], *interleaveOptions)
+        self.interleaveDropdown.grid(column = 4, row = 15, padx = 20, pady = 5, sticky = "W")
+        self.rb_interleave.set(interleaveOptions[int(interleave)])
+
+        self.rb_interleave.trace("w", interleave_changed)
+
         self.processButton()
 
         
@@ -552,7 +610,6 @@ class Root(Tk):
         # labels can be text or images
         self.previewLabel.configure(image = render, text = "", width = 200)
         self.previewLabel.image = render
-        #self.previewLabel.place(x=0, y=0)
 
     # when invoked, open the image and extract information on it
     def imageViewer(self):
@@ -560,6 +617,8 @@ class Root(Tk):
         global input_filename
         global img
         global rgb_colors
+        global skip_column
+        
         
         img = Image.open(input_directory+'/'+input_filename) 
         w, h = img.size
@@ -583,7 +642,6 @@ class Root(Tk):
                     find_pal_color(r,g,b)
                     yet_another_a8_palette.append((Hue_A8, Lum_A8))
         print(rgb_colors)
-        #self.imageParamsLabel.configure(text = "Image Format: "+ img.format+"\nwidth:  "+str( w) + "\nheight: "+str(h)+"\ndepth: "+str(d) + "\nNumber of colors: " + str(len(colors)) + str(colors) + "\nPalette (RGB): " + str(rgb_colors) + "\nPalette (A8): " + str(yet_another_a8_palette))
         if (len(yet_another_a8_palette) < 6):
             for i in range (len(yet_another_a8_palette), 6):
                 rgb_colors.append((0,0,0))
@@ -615,23 +673,33 @@ class Root(Tk):
         self.outputImageColorValue2.configure(text = hex(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]) + "(" + str(yet_another_a8_palette[2][0]*16+yet_another_a8_palette[2][1]) + ")")
         self.outputImageColorValue3.configure(text = hex(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]) + "(" + str(yet_another_a8_palette[3][0]*16+yet_another_a8_palette[3][1]) + ")")
         self.outputImageColorValue4.configure(text = hex(yet_another_a8_palette[4][0]*16+yet_another_a8_palette[4][1]) + "(" + str(yet_another_a8_palette[4][0]*16+yet_another_a8_palette[4][1]) + ")")
+        preview_a8 = img.convert("RGB")
+        #for j in range(preview_a8.size[1]):
+        #    for i in range(preview_a8.size[0]):
+        #            r, g, b = preview_a8.getpixel((i, j))
+        #            a8_rgb = find_rgb_color(yet_another_a8_palette[rgb_colors.index((r, g, b))][0]*16+yet_another_a8_palette[rgb_colors.index((r, g, b))][1])
+        #            r = int("0x"+a8_rgb[1:2], 0)
+        #            g = int("0x"+a8_rgb[3:4], 0)
+        #            b = int("0x"+a8_rgb[5:6], 0)
+        #            preview_a8.putpixel((i, j), (r, g, b))
+        #preview_a8.show()
 
-        preview_a8 = img.convert('RGB')
-        preview_a8 = cga_quantize(preview_a8)
         preview_a8.thumbnail((160, 96), Image.ANTIALIAS)
         preview_render = ImageTk.PhotoImage(preview_a8)
         self.outputPreviewLabel.configure(image = preview_render, text = "", width = 200)
         self.outputPreviewLabel.image = preview_render
+        a8_w = w
+        if (skip_column == 1):
+                a8_w = w / 2
 
         self.imageSize.configure(text = "Size: " + str(w)+", "+str(h))
+        self.outputImageSize.configure(text = "Size: " + str(a8_w)+", "+str(h))
 
     # file dialog for choosing our image 2 antic file
     def fileDialog(self):
         global input_directory
         global input_filename
         self.filename =  filedialog.askopenfilename(initialdir = input_directory,title = "Select file",filetypes = (("all files","*.*"),("GIF files","*.gif"),("PNG files","*.png")))
-        #self.label = ttk.Label(self.labelFrame, text = "")
-        #self.label.grid(column = 1, row = 2)
         input_directory = self.filename.split('/')
         input_filename = input_directory.pop()
         input_directory = '/'.join(input_directory)

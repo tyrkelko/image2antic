@@ -5,15 +5,19 @@
 ************************************************/
 #include <atari.h>
 #include <string.h>
-
 ##ATARI_MAIN_C_DEFINITIONS##
 
-unsigned char charset_array[] = {##CHARSETS_MEM##};
+unsigned char charset_array[] = {
+##CHARSETS_MEM##
+};
 
 ##ATARI_MAIN_C_DL_ARRAY##
 
-unsigned char charset_index = 0;
+unsigned char charset_index;
 unsigned char charset_array_size;
+unsigned char i;
+unsigned int screen_pos;
+unsigned char vblank_counter;
 
 void erase_sprite(void);
 void update_sprite(void);
@@ -21,11 +25,16 @@ void draw_sprite(void);
 void handle_input (void);
 void wait_for_vblank(void);
 void setup_dli(void);
-void dli_routine_0(void);
-void dli_routine_1(void);
+void dli_routine(void);
 
 void main(void)
 {
+	charset_index = 0;
+	screen_pos = 0;
+
+	// SHUT DOWN ANTIC
+	OS.sdmctl = 0;
+
 	// CREATE SCREEN
 	memcpy((void*) DLIST_MEM,antic4_display_list,sizeof(antic4_display_list));
 	OS.sdlst=(void*)DLIST_MEM;
@@ -37,7 +46,7 @@ void main(void)
 	OS.color3 = ##COLOR3##;
 	OS.color4 = ##COLOR4##;
 
-	charset_array_size = sizeof(charset_array);
+	charset_array_size = sizeof(charset_array) + ##CHARSET_INDEX##;
 	setup_dli();
 	wait_for_vblank();
 	ANTIC.nmien = NMIEN_DLI | NMIEN_VBI; 
@@ -59,8 +68,9 @@ void wait_for_vblank(void)
 wvb:
     asm("cmp $14");
     asm("beq %g", wvb);
+    --vblank_counter;
 } 
-void dli_routine_0(void)
+void dli_routine(void)
 {
     asm("pha");
     asm("tya");
@@ -68,9 +78,10 @@ void dli_routine_0(void)
     asm("tya");
     asm("pha");
     ANTIC.chbase = charset_array[charset_index];
+    ++charset_index;
+    if (charset_index >= charset_array_size)
+    	charset_index = 0;
     ANTIC.wsync = 1;
-    charset_index++;
-    if (charset_index >= charset_array_size) charset_index = 0;
     asm("pla");
     asm("tay");
     asm("pla");
@@ -82,16 +93,18 @@ void dli_routine_0(void)
 void setup_dli(void)
 {
 	wait_for_vblank();
-    OS.vdslst = &dli_routine_0;
+    OS.vdslst = &dli_routine;
 }
 void erase_sprite() {
 	// ERASE SPRITE
 }
 void update_sprite() {
 	// TODO: UPDATE SPRITE
+    ##MAIN_C_UPDATE##
 }
 void draw_sprite() {
 	// TODO: DRAW SPRITE
+    ##MAIN_C_DRAW##
 }
 void handle_input (void)
 {
