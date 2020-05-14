@@ -7,6 +7,20 @@
 #include <string.h>
 ##ATARI_MAIN_C_DEFINITIONS##
 
+#define JOY_NO_MOVE   0
+#define JOY_BIT_UP    1
+#define JOY_BIT_DOWN  2
+#define JOY_BIT_LEFT  4
+#define JOY_BIT_RIGHT 8
+#define JOY_BIT_TOP_RIGHT   9
+#define JOY_BIT_TOP_LEFT    5
+
+#define MOVING_NONE	0
+#define MOVING_UP	1
+#define MOVING_DOWN	2
+#define MOVING_LEFT	3
+#define MOVING_RIGHT	4
+
 unsigned char charset_array[] = {
 ##CHARSETS_MEM##
 };
@@ -17,7 +31,12 @@ unsigned char charset_index;
 unsigned char charset_array_size;
 unsigned char i;
 unsigned int screen_pos;
+unsigned char hscrol_bit;
+unsigned int row_addr;
 unsigned char vblank_counter;
+unsigned char st;
+unsigned char moving_type;
+unsigned char auto_scroll;
 
 void erase_sprite(void);
 void update_sprite(void);
@@ -31,7 +50,8 @@ void main(void)
 {
 	charset_index = 0;
 	screen_pos = 0;
-
+	hscrol_bit = 0;
+	auto_scroll = 1;
 	// SHUT DOWN ANTIC
 	OS.sdmctl = 0;
 
@@ -78,8 +98,7 @@ void dli_routine(void)
     asm("tya");
     asm("pha");
     ANTIC.chbase = charset_array[charset_index];
-    ++charset_index;
-    if (charset_index >= charset_array_size)
+    if (++charset_index >= charset_array_size)
     	charset_index = 0;
     ANTIC.wsync = 1;
     asm("pla");
@@ -109,4 +128,5 @@ void draw_sprite() {
 void handle_input (void)
 {
  // TODO: HANDLE INPUT
+    ##MAIN_C_INPUT##
 }
