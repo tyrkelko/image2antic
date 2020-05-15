@@ -12,7 +12,6 @@ import os.path
 from tkinter import *
 import tkinter as tk
 from PIL import Image, ImageTk
-#from ScrollableImage import ScrollableImage 
 import copy
 from pathlib import Path
 import shlex, subprocess
@@ -20,20 +19,27 @@ import shlex, subprocess
 #############################################################################################################################################################################
 # Atari 800XL PAL palette and color management functions
 
-a8_palette = [  (  0,  0,  0),( 33, 33, 33),( 75, 75, 75),(107,107,107),(132,132,132),(164,164,164),(206,206,206),(255,255,255), # black   0 -  15
-		( 68,  0,  0),(104, 23,  0),(134, 55,  0),(173, 91, 00),(196,116, 31),(230,157, 62),(250,191,101),(255,222,140), # brown  16 -  31
-		( 79,  0,  0),(118,  0,  0),(152, 40, 26),(184, 74, 59),(217, 97, 83),(243,142,124),(253,174,157),(255,206,189), # red    32 -  47
-		( 91,  0,  0),(205,  0, 44),(158, 24, 75),(192, 65,108),(220, 87,132),(255,125,175),(253,155,206),(251,198,240), # pink   48 -  63
+
+antic_target_modes = {
+        "4" : {"colors" : 5, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x8x4"},
+        "5" : {"colors" : 5, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x16x4"}
+    }
+
+
+a8_palette = [  (  0,  0,  0),( 33, 33, 33),( 75, 75, 75),(107,107,107),(132,132,132),(164,164,164),(206,206,206),(255,255,255),
+		( 68,  0,  0),(104, 23,  0),(134, 55,  0),(173, 91, 00),(196,116, 31),(230,157, 62),(250,191,101),(255,222,140),
+		( 79,  0,  0),(118,  0,  0),(152, 40, 26),(184, 74, 59),(217, 97, 83),(243,142,124),(253,174,157),(255,206,189),
+		( 91,  0,  0),(126,  0, 42),(158, 24, 75),(192, 65,108),(220, 87,132),(255,125,175),(253,155,206),(251,198,240),
                                 
-                ( 85,  0, 51),(118,  0, 90),(144, 14,123),(188, 58,156),(213, 81,183),(247,116,222),(255,144,255),(255,186,255), # purple 64 -  79
-		( 56,  0,103),(103,  0,138),(133, 16,172),(162, 62,214),(184, 88,238),(235,112,252),(252,150,249),(255,186,255), # purple 80 -  95
-                ( 36,  0,103),( 67,  0,176),( 99, 24,205),(137, 69,244),(166, 89,253),(198,121,251),(224,157,250),(255,197,255), # Pur-Bl 96 - 111
-  		(  0,  0,144),(  0, 32, 44),( 36, 55,209),( 71, 97,242),(100,124,255),(134,158,255),(163,188,255),(206,232,249), #       112 - 127
+                ( 85,  0, 51),(118,  0, 90),(144, 14,123),(188, 58,156),(213, 81,183),(247,116,222),(255,144,255),(255,186,255),
+		( 56,  0,103),(103,  0,138),(133, 16,172),(162, 62,214),(184, 88,238),(235,112,252),(252,150,249),(255,190,248),
+                ( 36,  0,103),( 67,  0,176),( 99, 24,205),(137, 69,244),(166, 89,253),(198,121,251),(224,157,250),(255,200,247),
+  		(  0,  0,144),(  0, 26,175),( 36, 55,209),( 71, 97,242),(100,124,255),(134,158,255),(163,188,255),(206,232,249),
                                 
 		(  0,  0,103),(  0, 51,128),(  0, 84,176),( 45,113,214),( 70,148,233),(103,182,255),(134,217,255),(171,255,255),				
 		(  0, 32, 47),(  0, 64, 83),(  0,104,128),( 30,139,159),( 49,165,178),( 95,195,218),(125,232,242),(163,251,253),                                
-		(  0, 43,  0),(  0, 80, 32),(  0,128, 64),( 71, 97,242),( 51,172,128),( 86,212,165),(119,247,199),(206,251,238),
-		(  0, 51,  0),(  0, 87,  0),(  0,124,  0),( 50,160,  0),( 50,160,  0),(103,220, 62),(139,255, 97),(184,255,128), # check middle of this line - color repeats
+		(  0, 43,  0),(  0, 80, 32),(  0,128, 64),( 22,149,108),( 51,172,128),( 86,212,165),(119,247,199),(206,251,238),
+		(  0, 51,  0),(  0, 87,  0),(  0,124,  0),( 50,160,  0),( 72,182, 35),(103,220, 62),(139,255, 97),(184,255,128),
                                 
 		(  0, 42,  0),(  0, 80,  0),( 39,115,  0),( 80,142, 11),( 96,176,  0),(101,167, 15),(175,244, 76),(210,255,103),
 		(  0, 26,  0),( 75, 99,  0),( 80, 96, 21),(103,132, 11),(132,156,  0),(172,198, 26),(206,229, 60),(237,255, 96),
@@ -64,60 +70,6 @@ def find_rgb_color(Color_A8):
 def rgb_to_hex(rgb):
         return '#%02x%02x%02x' % rgb
 
-def popup_color_picker():
-        win = tk.Toplevel()
-        win.minsize(640, 400)
-        win.resizable(width=True, height=True)
-        win.wm_title("Atari 128 Colors - PAL")
-        win.colorPickerFrame = ttk.LabelFrame(win, text = "Pick a Color", width = 640, height = 400)
-        win.colorPickerFrame.grid(sticky = "NSEW", column = 1, row = 1, padx = 20, pady = 20)
-        win.color_lbl = []
-        win.color_name_lbl = []
-        for j in range(4):
-                for i in range(4):
-                        for k in range(8):
-                                win.color_lbl.append(ttk.Label(win.colorPickerFrame, background = find_rgb_color(2*(j*32+i*8+k)), width = 20))
-                                win.color_lbl[j*32+i*8+k].grid(column = j*2, row = i*8+k)
-                                win.color_name_lbl.append(ttk.Button(win.colorPickerFrame, text = str(2*(j*32+i*8+k)), width = 5))
-                                win.color_name_lbl[j*32+i*8+k].grid(column = j*2 + 1, row = i*8+k)
-                
-class CustomDialog(tk.Toplevel):
-        def __init__(self, parent, prompt):
-                tk.Toplevel.__init__(self, parent)
-                self.minsize(640, 400)
-                self.resizable(width=True, height=True)
-                self.wm_title("Atari 128 Colors - PAL")
-                self.colorPickerFrame = ttk.LabelFrame(self, text = "Pick a Color", width = 640, height = 400)
-                self.colorPickerFrame.grid(sticky = "NSEW", column = 1, row = 1, padx = 20, pady = 20)
-                self.color_lbl = []
-                self.color_name_lbl = []
-                for j in range(4):
-                        for i in range(4):
-                                for k in range(8):
-                                        self.color_lbl.append(ttk.Label(self.colorPickerFrame, background = find_rgb_color(2*(j*32+i*8+k)), width = 20))
-                                        self.color_lbl[j*32+i*8+k].grid(column = j*2, row = i*8+k)
-                                        self.color_name_lbl.append(ttk.Button(self.colorPickerFrame, text = str(2*(j*32+i*8+k)), width = 5, command = self.on_ok(color = 2*(j*32+i*8+k))))
-                                        self.color_name_lbl[j*32+i*8+k].grid(column = j*2 + 1, row = i*8+k)
-
-                self.var = tk.StringVar()
-                self.label = tk.Label(self, text=prompt)
-                self.entry = tk.Entry(self, textvariable=self.var)
-                self.ok_button = tk.Button(self, text="OK", command=self.on_ok)
-
-                self.label.grid(column = 0, row = 0)
-                self.entry.grid(column = 1, row = 0)
-                self.ok_button.grid(column = 2, row = 0)
-
-                self.entry.bind("<Return>", self.on_ok)
-
-        def on_ok(self, color, event=None):
-                self.destroy()
-
-        def show(self):
-                self.wm_deiconify()
-                self.entry.focus_force()
-                self.wait_window()
-                return self.var.get()
 
 #############################################################################################################################################################################
 # Configuration management
@@ -132,6 +84,8 @@ def init():
         config.add_section('Output')
         config.set('Output', 'AnticMode', '5')
         config.set('Output', 'skip_column', '0')
+        config.set('Output', 'resize', '0')
+        config.set('Output', 'reduce_colors', '0')
         config.set('Output', 'interleave', '0')
         with open('image2antic.cfg', 'w') as output:
                 config.write(output)
@@ -149,35 +103,39 @@ global antic_mode
 antic_mode = config.get('Output', 'AnticMode')
 global skip_column
 skip_column = config.get('Output', 'skip_column', fallback='0')
+global resize
+resize = config.get('Output', 'resize', fallback='0')
+global reduce_colors
+reduce_colors = config.get('Output', 'reduce_colors', fallback='0')
 global interleave
 interleave = str(config.get('Output', 'interleave', fallback='0'))
 
 
 #------------------------------------------------------------
 def update(section, key, value):
-    #Update config using section key and the value to change
-    #call this when you want to update a value in configuation file
-    # with some changes you can save many values in many sections
-    config.set(section, key, value )
-    with open('image2antic.cfg', 'w') as output:
-        config.write(output)
+        #Update config using section key and the value to change
+        #call this when you want to update a value in configuation file
+        # with some changes you can save many values in many sections
+        config.set(section, key, value )
+        with open('image2antic.cfg', 'w') as output:
+                config.write(output)
 #------------------------------------------------------------
 
 #############################################################################################################################################################################
 # compilation and emulation command line
 def exec_emulator_with_build():
-    global working_directory
-    global antic_mode
-    command_line = "wine /home/kobi/Altirra-3.10/Altirra.exe "+working_directory+".xex"
-    print(command_line)
-    # TODO: complete with configuration and execution accordingly
+        global working_directory
+        global antic_mode
+        command_line = "wine /home/kobi/Altirra-3.10/Altirra.exe "+working_directory+".xex"
+        print(command_line)
+        # TODO: complete with configuration and execution accordingly
 
 
 def exec_cc65_build():
-    global working_directory
-    command_line = "/home/kobi/cc65/bin/cl65 --debug-info -Wl --dbgfile,"+working_directory+".lab -m "+working_directory+".map -Ln "+working_directory+".lbl -t atari -Oi segments.s main.c -o "+working_directory+".xex -C atari.cfg"
-    print(command_line)
-    # TODO: complete with configuration and execution accordingly
+        global working_directory
+        command_line = "/home/kobi/cc65/bin/cl65 --debug-info -Wl --dbgfile,"+working_directory+".lab -m "+working_directory+".map -Ln "+working_directory+".lbl -t atari -Oi segments.s main.c -o "+working_directory+".xex -C atari.cfg"
+        print(command_line)
+        # TODO: complete with configuration and execution accordingly
 
 
 #############################################################################################################################################################################
@@ -195,12 +153,9 @@ def process_cc65_code():
 
     screen_mem_start = 19456            # 0x4C00
     charset_base_mem_start= 12288       # 0x3000
-    
-    antic_target_modes = {
-        "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x8x4"},
-        "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x16x4"}
-    }
 
+    global antic_target_modes
+    
     segments_file_text = ""
     atari_cfg_memory = ""
     atari_cfg_segments = ""
@@ -315,14 +270,16 @@ def process_cc65_code():
                         chars_reuse = chars_reuse + 1
                         screen[i,j] = char[1]
                         if (fifth_color == 1):
-                            screen[i,j] += 128
+                            if (screen[i,j] < 128):
+                                    screen[i,j] += 128
                     
                 if (not char_exists):
                     chars_count = chars_count + 1
                     chars[charset_index, chars_index] = copy.deepcopy(temp_char)
                     screen[i,j] = chars_index
                     if (fifth_color == 1):
-                        screen[i,j] += 128
+                        if (screen[i,j] < 128):
+                                screen[i,j] += 128
                     
                     chars_index = chars_index + 1
             else:
@@ -365,7 +322,7 @@ def process_cc65_code():
     root.charsetSizeLabel.configure(text="Charsets Size " + str(charsets_size))
     
     print ("generate screen_data")
-    for j in range(antic_target_modes[antic_mode]["lines"]):
+    for j in range(lines): #range(antic_target_modes[antic_mode]["lines"]):
         for i in range (columns):
             screenArray.append(screen[i,j])
 
@@ -494,14 +451,19 @@ class Root(Tk):
         self.previewCanvasFrame.grid(sticky = "NSEW", column = 0, row = 0, columnspan = 10)
         self.previewCanvas = Canvas(self.previewCanvasFrame, width = 1220, height = 192, scrollregion=(0,0,2048,2048))
         self.previewCanvas.grid(column = 0, row = 0, padx = 20, pady = 10)
-        #self.previewA8Canvas = Canvas(self.previewCanvasFrame, width = 1220, height = 192, scrollregion=(0,0,2048,2048))
-        #self.previewA8Canvas.grid(column = 0, row = 2, padx = 20, pady = 10)
+
 
         self.canvasHbar = Scrollbar(self.previewCanvasFrame, orient=HORIZONTAL)
         self.canvasHbar.grid(sticky="ew") 
         self.canvasHbar.config(command = self.previewCanvas.xview)
         self.previewCanvas.config(xscrollcommand=self.canvasHbar.set)
-        #self.previewA8Canvas.config(xscrollcommand=self.canvasHbar.set)
+
+
+        #antic_target_modes = {
+        #        "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x8x4"},
+        #        "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x16x4"}
+        #}
+        global antic_target_modes
 
         global antic_modes
         antic_modes = [("Text 4 (40x24,4 colors)", 1, "4"), ("Text 5 (40x12,4 colors)", 2, "5")]
@@ -527,9 +489,6 @@ class Root(Tk):
             self.anticRadioButtons = ttk.Radiobutton(self.previewFrame, text=text, variable=self.rb_antic_mode, value=mode)
             self.anticRadioButtons.grid(sticky = "W", column = 5, row = num + 3)
 
-        
-
-        
         # skip odd columns for processing images designed for Antic 4 with 2x1 pixel ratio.
         def skip_column_changed(*args):
             global skip_column
@@ -544,6 +503,37 @@ class Root(Tk):
         
         self.skipColumnCheckBox = ttk.Checkbutton(self.previewFrame, text = "Skip column (Antic 4 compatibility)", variable = self.rb_skip_column)
         self.skipColumnCheckBox.grid(column = 5, row = 6, sticky = "W")
+
+        # resize to fit ANTIC mode.
+        def resize_changed(*args):
+            global resize
+            resize = self.rb_resize.get()
+            update("Output", "resize", resize)
+            
+        global resize
+        self.rb_resize = StringVar()
+        self.rb_resize.set(str(resize))
+        
+        self.rb_resize.trace("w", resize_changed)
+        
+        self.resizeCheckBox = ttk.Checkbutton(self.previewFrame, text = "Resize to fix ANTIC mode height", variable = self.rb_resize)
+        self.resizeCheckBox.grid(column = 5, row = 7, sticky = "W")
+
+        # reduce_colors to fit ANTIC mode.
+        def reduce_colors_changed(*args):
+            global reduce_colors
+            reduce_colors = self.rb_reduce_colors.get()
+            update("Output", "reduce_colors", reduce_colors)
+            
+        global reduce_colors
+        self.rb_reduce_colors = StringVar()
+        self.rb_reduce_colors.set(str(reduce_colors))
+        
+        self.rb_reduce_colors.trace("w", reduce_colors_changed)
+        
+        self.reduceColorsCheckBox = ttk.Checkbutton(self.previewFrame, text = "Reduce Colors to ANTIC", variable = self.rb_reduce_colors)
+        self.reduceColorsCheckBox.grid(column = 5, row = 8, sticky = "W")
+
 
         # allow user select if the screen has horizontal scroll and if so, how to rotate the charsets between display lines
         global interleaveOptions
@@ -561,7 +551,7 @@ class Root(Tk):
         
         
         self.interleaveDropdown = ttk.OptionMenu(self.previewFrame, self.rb_interleave, interleaveOptions[0], *interleaveOptions)
-        self.interleaveDropdown.grid(column = 5, row = 8, sticky = "W")
+        self.interleaveDropdown.grid(column = 5, row = 9, sticky = "W")
         self.rb_interleave.set(interleaveOptions[int(interleave)])
 
         self.rb_interleave.trace("w", interleave_changed)
@@ -620,10 +610,14 @@ class Root(Tk):
         del self.yet_another_a8_palette[:]
         self.rgb_colors.clear()
         del self.rgb_colors[:]
+        for i in self.imageRGBColors:
+                i.destroy()
         self.imageRGBColors.clear()
         del self.imageRGBColors[:]
         self.imageRGBColorsLabel.clear()
         del self.imageRGBColorsLabel[:]
+        for i in self.imageA8Colors:
+                i.destroy()
         self.imageA8Colors.clear()
         del self.imageA8Colors[:]
         self.imageA8ColorsLabel.clear()
@@ -639,7 +633,35 @@ class Root(Tk):
         rgb_colors = []
         del self.rgb_colors[:]
         colors = []
-        img = Image.open(input_directory+'/'+input_filename) 
+        img = Image.open(input_directory+'/'+input_filename)
+        global antic_target_modes
+        global resize
+        global skip_column
+        
+        if (int(resize) == 1):
+                print("resize:", resize)
+                #rw = antic_target_modes[antic_mode]["columns"] * antic_target_modes[antic_mode]["char_width"]
+                
+                rh = antic_target_modes[antic_mode]["lines"] * antic_target_modes[antic_mode]["char_height"]
+                rw = int(rh*img.size[0]/img.size[1])
+                if ((antic_mode == "4") and (int(skip_column) == 0)):
+                        rw = rw * 2
+                size = (rw, rh)
+                        
+                print("resizing...", size)
+                #img.resize(size, Image.NONE)
+                img.thumbnail(size, Image.NONE)
+                
+
+        global reduce_colors
+        
+        
+        if (int(reduce_colors) == 1):
+                print("reduce_colors...", antic_target_modes[antic_mode]["colors"])
+                img = img.convert("P", palette=Image.ADAPTIVE, colors=antic_target_modes[antic_mode]["colors"])
+                print("convert image palette")
+        
+        
         w, h = img.size
         mode_to_bpp = {'1':1, 'L':8, 'P':8, 'RGB':24, 'RGBA':32, 'CMYK':32, 'YCbCr':24, 'I':32, 'F':32}
         d = mode_to_bpp[img.mode]
@@ -649,13 +671,13 @@ class Root(Tk):
             for i in range(w):
                 if (px[i, j] not in colors):
                     colors.append(px[i,j])
-        rgb_im = img.convert('RGB')
+        self.rgb_im = img.convert('RGB')
         
         
         
         for j in range(h):
             for i in range(w):
-                r, g, b = rgb_im.getpixel((i, j))
+                r, g, b = self.rgb_im.getpixel((i, j))
                 if ((r,g,b) not in self.rgb_colors):
                     self.rgb_colors.append((r,g,b))
                     rgb_colors.append((r,g,b))
@@ -671,34 +693,73 @@ class Root(Tk):
                 rgb_colors.append((0,0,0))
                 self.yet_another_a8_palette.append((0, 0))
                 yet_another_a8_palette.append((0, 0))
-        
+
+
+        rb_color_index = IntVar()
         for i in range(number_of_colors):
                 atari_color = self.yet_another_a8_palette[i][0]*16+self.yet_another_a8_palette[i][1]
-                self.imageA8Colors.append(ttk.Label(self.previewFrame, background = find_rgb_color(atari_color), text = str(atari_color), width = 10))
-                self.imageA8Colors[i].grid(column = 2, row = i+3)
-                self.imageA8ColorsButton.append(ttk.Button(self.previewFrame, text = "< Adjust", width = 10, command = self.pick_color))
-                self.imageA8ColorsButton[i].grid(column = 4, row = i+3)
-                self.imageRGBColors.append(ttk.Label(self.previewFrame, background = rgb_to_hex(self.rgb_colors[i]), text = rgb_to_hex(self.rgb_colors[i]), width = 10))
-                self.imageRGBColors[i].grid(column = 0, row = i+3)
+                self.imageA8Colors.append(Radiobutton(self.previewFrame, text = str(atari_color), width = 20, variable = rb_color_index, value = i, bg = find_rgb_color(atari_color), command = lambda : self.pick_color(rb_color_index.get()))) #, bg = find_rgb_color(atari_color)
+                self.imageA8Colors[i].grid(column = 2, row = i+3, columnspan = 2)
 
+                self.imageRGBColors.append(ttk.Label(self.previewFrame, background = rgb_to_hex(self.rgb_colors[i]), text = rgb_to_hex(self.rgb_colors[i]), width = 20))
+                self.imageRGBColors[i].grid(column = 0, row = i+3, columnspan = 2)
+
+        
+        self.a8_img = self.updateA8Img(self.rgb_im)
+        
+        # now create the ImageTk PhotoImage:
+        self.showImg(self.a8_img)
+        w, h = self.a8_img.size
+        self.imageSize.configure(text = "Size: " + str(w)+", "+str(h))
+
+    def updateA8Img(self, rgb_im):
+
+    #antic_target_modes = {
+    #    "4" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 24, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x8x4"},
+    #    "5" : {"colors" : 4, "display_mode" : "text", "columns" : 40, "lines" : 12, "char_width" : 4, "char_height" : 8, "dl" : "DL_CHR40x16x4"}
+    #}
+        
         self.a8_img = Image.new( rgb_im.mode, rgb_im.size)
         pixelMap = rgb_im.load()
         pixelsNew = self.a8_img.load()
         for i in range(img.size[0]):
                 for j in range(img.size[1]):
                         r,g,b = rgb_im.getpixel((i,j))
-                        a8c = yet_another_a8_palette[rgb_colors.index((rgb_im.getpixel((i, j))))][0]*16+yet_another_a8_palette[rgb_colors.index((rgb_im.getpixel((i, j))))][1]
+                        a8c = self.yet_another_a8_palette[rgb_colors.index((rgb_im.getpixel((i, j))))][0]*16+self.yet_another_a8_palette[rgb_colors.index((rgb_im.getpixel((i, j))))][1]
                         pixelsNew[i,j] = a8_palette[int(a8c/2)]
+        return self.a8_img
 
-        # now create the ImageTk PhotoImage:
-        self.showImg(self.a8_img)
+    def pick_color(self, playfield):
+                print ("pick color for playfield", playfield)
+                self.popup_color_picker(playfield)
 
-        self.imageSize.configure(text = "Size: " + str(w)+", "+str(h))
-
-    def pick_color(self):
-                my_color = popup_color_picker()
-
+    def update_color(self, color, playfield):
+                atari_color = int(color)*2
+                print("color selected is:", atari_color)
+                self.win.destroy()
+                self.imageA8Colors[playfield].configure(text = str(atari_color), bg = find_rgb_color(atari_color))
+                self.yet_another_a8_palette[playfield] = (atari_color >> 4, atari_color & 0xF)
+                global yet_another_a8_palette
+                yet_another_a8_palette[playfield] = (atari_color >> 4, atari_color & 0xF)
+                print(self.yet_another_a8_palette[playfield])
+                self.updateA8Img(self.rgb_im)
+                self.showImg(self.a8_img)
                 
+
+    def popup_color_picker(self, playfield):
+                print("playfield:",playfield)
+                self.win = tk.Toplevel()
+                self.win.minsize(640, 400)
+                self.win.resizable(width=True, height=True)
+                self.win.wm_title("Atari 8+112 Colors - PAL")
+                self.win.colorPickerFrame = ttk.LabelFrame(self.win, text = "Pick a Color", width = 640, height = 400)
+                self.win.colorPickerFrame.grid(sticky = "NSEW", column = 1, row = 1, padx = 20, pady = 20)
+                popupMenu = []
+                tkvar = StringVar()
+                for color in a8_palette:
+                        popupMenu.append(Radiobutton(self.win.colorPickerFrame, text = "A8(" + str(2*a8_palette.index(color)) + ") RGB("+rgb_to_hex(color)+")", variable = tkvar, value = a8_palette.index(color),bg = rgb_to_hex(color),command = lambda : root.update_color(tkvar.get(), playfield), width=20))
+                        popupMenu[a8_palette.index(color)].grid(row = a8_palette.index(color)%24, column = int(a8_palette.index(color)/24), sticky=W+E+S+N)
+
     # file dialog for choosing our image 2 antic file
     def fileDialog(self):
         global input_directory
